@@ -1,0 +1,9 @@
+project_yaml_version: "1.0.3"
+project_directory: NULL
+load_init: FALSE
+load_files: 
+title: "Project Title"
+authors:
+    - "author <author@joanneum.at>"
+    - "author2 <author2@joanneum.at>"
+R_version: "4.3.1"

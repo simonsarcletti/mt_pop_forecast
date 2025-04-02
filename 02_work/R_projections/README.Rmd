@@ -1,0 +1,79 @@
+---
+title: "`r getProjDetails('title')`"
+author: "`r paste('JOANNEUM RESEARCH,', getProjDetails('authors', paste = TRUE))`"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    highlight: monochrome
+    keep_md: yes
+    number_sections: yes
+    theme: default
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+  pdf_document:
+    number_sections: yes
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+```{r init, message=FALSE, warning=FALSE, include=FALSE}
+if (!require("rprojroot")) {
+  install.packages("rprojroot")
+}
+wd <- rprojroot::find_root(".Rprofile")
+source(file.path(wd, "00_init.R"))
+knitr::opts_chunk$set(comment = "#>")
+```
+
+# Project details
+
+**Project number**      | <project number>  
+----------------------- | ------------------------
+**Project lead JR**     | xxx     
+**Project staff JR**    | xxx
+**Customer**            | xxx
+**Period**              | xxx
+
+## Working directories
+
+The following working directories are currently defined as subdirectories of `wd_proj` (= `r wd_proj`):
+
+```{r wds, message=FALSE, warning=FALSE}
+print(pathTree(wd_proj), right = FALSE)
+```
+
+
+## R-Files
+
+The following R-files currently exist:
+
+```{r, message=FALSE, warning=FALSE}
+data <- data.frame(file = list.files(wd_rproj, pattern = '*\\.R$|*\\.Rmd$'), 
+                   stringsAsFactors = FALSE)
+myFileSize <- function(file.path) {
+  if (file.exists(file.path)) {
+    utils:::format.object_size(file.size(file.path), 'auto')
+  } else {'-'}
+}
+
+data <- data %>% rowwise %>%  
+  mutate(size = myFileSize(file.path(wd_rproj, file)))
+
+data.info <- file.info(data$file)
+data$created <- data.info$ctime
+data$modified <- data.info$mtime
+
+knitr::kable(data, caption = "Current R-files")
+```
+
+# Session Info
+
+This file was produced with following session info:
+
+```{r session_info}
+sessionInfo()
+```
