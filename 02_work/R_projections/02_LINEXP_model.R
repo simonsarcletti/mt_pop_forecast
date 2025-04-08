@@ -17,24 +17,19 @@
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
 train_data <- all_munip_pop %>% filter(year %in% c(2002:2021)) %>%
-  mutate(year =as.numeric(year))
-#validation_data <- all_munip_pop %>% filter(year %in% c(2019:2021)) 
-#  mutate(year =as.numeric(year))
-test_data <- all_munip_pop %>% filter(year %in% c(2022:2024)) %>%
-  replace_na(list(population = 0))%>%
-  mutate(year =as.numeric(year))
-
+  mutate(year = as.numeric(year)) %>%
+  rename(age_group = coarse_age_group)
 
 
 train_data_growth_rate <- train_data %>%
   unite("index", municipality_code, sex, age_group, sep = "_") %>%
   group_by(index) %>%
   arrange(year, .by_group = TRUE) %>%
-  select(index, year, population, rolling_mean_population) %>%
+  select(index, year, population, smoothed_population) %>%
   mutate(population_change = calculate_population_change(population)) %>%
   mutate(population_change_factor = calculate_population_change_factor(population)) %>%
-  mutate(smoothed_population_change = calculate_population_change(rolling_mean_population)) %>%
-  mutate(smoothed_population_change_factor = calculate_population_change_factor(rolling_mean_population))
+  mutate(smoothed_population_change = calculate_population_change(smoothed_population)) %>%
+  mutate(smoothed_population_change_factor = calculate_population_change_factor(smoothed_population))
 
 
 
@@ -108,27 +103,30 @@ LINEXP_MAE <- LINEXP_validation %>%
   ungroup()
 
 test_data <- all_munip_pop %>%
+  rename(age_group = coarse_age_group) %>%
   unite("index", municipality_code, sex, age_group, sep = "_") %>%
   group_by(index) %>%
   arrange(year, .by_group = TRUE) %>%
-  select(index, year, reg_code,population, rolling_mean_population) %>%
+  select(index, year, reg_code, population, smoothed_population) %>%
   mutate(population_change = calculate_population_change(population)) %>%
   mutate(population_change_factor = calculate_population_change_factor(population)) %>%
-  mutate(smoothed_population_change = calculate_population_change(rolling_mean_population)) %>%
-  mutate(smoothed_population_change_factor = calculate_population_change_factor(rolling_mean_population))
+  mutate(smoothed_population_change = calculate_population_change(smoothed_population)) %>%
+  mutate(smoothed_population_change_factor = calculate_population_change_factor(smoothed_population))
 
 
 tuned_LINEXP_prediction <- test_data %>%
   left_join(select(LINEXP_MAE, index, best_bpl), by = join_by(index)) %>%
   group_by(index) %>%
   arrange(year) %>%
-  mutate(tuned_LINEXP = return_LINEXP_prediction(population = rolling_mean_population,
+  mutate(PRED_tuned_LINEXP = return_LINEXP_prediction(population = smoothed_population,
                                                  population_change = smoothed_population_change,
                                                  population_change_factor = smoothed_population_change_factor,
                                                  base_period_length = best_bpl,
                                                  n_prediction_periods = 3))
 
-tuned_LINEXP_pred_export <- tuned_LINEXP_prediction %>% select(index, year, population, rolling_mean_population, tuned_LINEXP)
+
+# Export -----------------------------------------------------------------------
+tuned_LINEXP_pred_export <- tuned_LINEXP_prediction %>% select(index, year, population, smoothed_population, PRED_tuned_LINEXP)
 save(tuned_LINEXP_pred_export,
      file= file.path(wd_res, "final_LINEXP_prediction.RData"))
 
@@ -139,7 +137,15 @@ plot_prediction(train_data = tuned_LINEXP_prediction %>% dplyr::filter(year %in%
                 prediction_data = tuned_LINEXP_prediction %>% dplyr::filter(year %in% 2022:2024),
                 train_col_name = "population",
                 test_col_name = "population",
-                prediction_col_name = "tuned_LINEXP",
-                cohort = "10423_weiblich_75 bis 79 Jahre",
+                prediction_col_name = "PRED_tuned_LINEXP",
+                cohort = "10423_weiblich_75+",
                 prediction_method = "LIN/EXP")
 
+plot_prediction(train_data = tuned_LINEXP_prediction %>% dplyr::filter(year %in% 2002:2021),
+                test_data = tuned_LINEXP_prediction %>% dplyr::filter(year %in% 2022:2024),
+                prediction_data = tuned_LINEXP_prediction %>% dplyr::filter(year %in% 2022:2024),
+                train_col_name = "population",
+                test_col_name = "population",
+                prediction_col_name = "PRED_tuned_LINEXP",
+                cohort = "60624_weiblich_20 bis 29 Jahre",
+                prediction_method = "LIN/EXP")

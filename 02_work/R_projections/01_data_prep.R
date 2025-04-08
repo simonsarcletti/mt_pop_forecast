@@ -63,16 +63,18 @@ district_projection <- district_projection_raw %>%
 
 
 district_projection <- district_projection %>%
-  mutate(coarse_age_group = case_when(
-    age_group %in% c("0-4", "5-9") ~ "bis 9 Jahre",
-    age_group %in% c("10-14", "15-19") ~ "10 bis 19 Jahre",
-    age_group %in% c("20-24", "25-29") ~ "20 bis 29 Jahre",
-    age_group %in% c("30-34", "35-39", "40-44") ~ "30 bis 44 Jahre",
-    age_group %in% c("45-49", "50-54") ~ "45 bis 54 Jahre",
-    age_group %in% c("55-59", "60-64") ~ "55 bis 64 Jahre",
-    age_group %in% c("65-69", "70-74") ~ "65 bis 74 Jahre",
-    age_group %in% c("75-79", "80+") ~ "75+"
-  )) %>%
+  mutate(
+    coarse_age_group = case_when(
+      age_group %in% c("0-4", "5-9") ~ "bis 9 Jahre",
+      age_group %in% c("10-14", "15-19") ~ "10 bis 19 Jahre",
+      age_group %in% c("20-24", "25-29") ~ "20 bis 29 Jahre",
+      age_group %in% c("30-34", "35-39", "40-44") ~ "30 bis 44 Jahre",
+      age_group %in% c("45-49", "50-54") ~ "45 bis 54 Jahre",
+      age_group %in% c("55-59", "60-64") ~ "55 bis 64 Jahre",
+      age_group %in% c("65-69", "70-74") ~ "65 bis 74 Jahre",
+      age_group %in% c("75-79", "80+") ~ "75+"
+    )
+  ) %>%
   group_by(district_identifier, sex, year, coarse_age_group) %>%
   summarise(projected_population = sum(projected_population)) %>%
   relocate(coarse_age_group, .after = sex)
@@ -85,9 +87,12 @@ if (nrow(district_projection) != 121 * 2 * 8 * 31) {
   print("nice!!!")
 }
 
- # control sums
-filter(district_projection_raw, district_identifier == 4090 & year == 2030) %>%ungroup() %>% summarise(sum(projected_population))
-filter(district_projection, district_identifier == 4090 & year == 2030) %>%ungroup() %>% summarise(sum(projected_population))
+# control sums
+filter(district_projection_raw,
+       district_identifier == 4090 &
+         year == 2030) %>% ungroup() %>% summarise(sum(projected_population))
+filter(district_projection, district_identifier == 4090 &
+         year == 2030) %>% ungroup() %>% summarise(sum(projected_population))
 
 
 
@@ -150,16 +155,62 @@ for (file in files) {
     bind_rows(munip_data)
 }
 
+
 all_munip_pop <- all_munip_pop %>%
   separate_wider_delim(
     municipality,
     delim = "<",
     names = c("municipality", "municipality_code")
   ) %>%
-  mutate(municipality_code = str_remove(municipality_code, ">")) %>%
-  mutate(reg_code = substr(municipality_code, 1, 3))
+  mutate(municipality_code = str_remove(municipality_code, ">"))
+
 
 all_munip_pop <- all_munip_pop %>%
+  filter(municipality != "Wien ") %>%
+  replace_na(list(population = 0)) %>%
+  group_by(municipality_code, sex, age_group) %>%
+  arrange(year) %>%
+  mutate(rolling_mean_population = rollmean(
+    population,
+    k = 3,
+    fill = NA,
+    align = "right"
+  )) %>%
+  ungroup()
+
+municipality_munip_code_map <- distinct(all_munip_pop, municipality_code, .keep_all =
+                                          TRUE) %>%
+  select(municipality_code, municipality)
+
+
+all_munip_pop <- all_munip_pop %>%
+  select(-municipality) %>%
+  mutate(
+    coarse_age_group = case_when(
+      age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "bis 9 Jahre",
+      age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 bis 19 Jahre",
+      age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 bis 29 Jahre",
+      age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 bis 44 Jahre",
+      age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 bis 54 Jahre",
+      age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 bis 64 Jahre",
+      age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 bis 74 Jahre",
+      age_group %in% c("75 bis 79 Jahre", "80+") ~ "75+"
+    )
+  ) %>%
+  group_by(municipality_code, sex, year, coarse_age_group) %>%
+  summarise(
+    population = sum(population),
+    smoothed_population = sum(rolling_mean_population)
+  ) %>%
+  ungroup() %>%
+  relocate(coarse_age_group, .after = sex) %>%
+  left_join(municipality_munip_code_map, by = join_by(municipality_code)) %>%
+  relocate(municipality, .after = municipality_code)
+
+
+all_munip_pop <- all_munip_pop %>%
+  mutate(reg_code = substr(municipality_code, 1, 3)) %>%
+  relocate(reg_code, .after = municipality_code) %>%
   mutate(reg_code = as.numeric(reg_code)) %>%
   mutate(municipality = trimws(municipality, which = "right", )) %>%
   mutate(
@@ -417,47 +468,21 @@ all_munip_pop <- all_munip_pop %>%
     )
   )
 
-all_munip_pop <- all_munip_pop %>%
-  filter(municipality != "Wien") %>%
-  replace_na(list(population = 0)) %>%
-  group_by(municipality,municipality_code ,sex, age_group) %>%
-  arrange(year) %>%
-  mutate(rolling_mean_population = rollmean(population, k = 3, fill = NA, align = "right")) %>%
-  ungroup()
 
-all_munip_pop <- all_munip_pop %>%
-  relocate(reg_code, .after = municipality_code) %>%
-  mutate(coarse_age_group = case_when(
-    age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "bis 9 Jahre",
-    age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 bis 19 Jahre",
-    age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 bis 29 Jahre",
-    age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 bis 44 Jahre",
-    age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 bis 54 Jahre",
-    age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 bis 64 Jahre",
-    age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 bis 74 Jahre",
-    age_group %in% c("75 bis 79 Jahre", "80+") ~ "75+"
-  )) %>%
-  group_by(municipality, municipality_code, sex, year, coarse_age_group) %>%
-  summarise(population = sum(population),
-            smoothed_population = sum(rolling_mean_population)) %>%
-  relocate(coarse_age_group, .after = sex)
-
-
-# control sum
-#if (nrow(all_munip_pop) != 2 * 17 * 2115 * 23) {
-#  print("1111 ALERT")
-#} else {
-#  print("nice!!!")
-#}
 
 if (nrow(all_munip_pop) != 2 * 8 * 2115 * 23) {
   stop("1111 ALERT")
 } else {
-  print("nice!!!")
+  print("nice, row count is okay!!!")
 }
+
+if (length(unique(all_munip_pop$reg_code)) != 121) {
+  stop("1111 ALERT")
+} else {
+  print("nice, all reg_codes!!!")
+}
+
 
 
 save(all_munip_pop,
      file = file.path(wd_data_work, "all_municipalities_population.RData"))
-
-
