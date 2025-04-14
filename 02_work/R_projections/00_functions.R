@@ -303,32 +303,36 @@ plot_prediction <- function(train_data,
                             train_col_name,
                             test_col_name,
                             prediction_col_name,
-                            cohort,
+                            municipality_code,
+                            sex,
+                            age_group,
                             prediction_method = "") {
   # Filter the original train_data for the specific cohort and preserve 'year'
-  cohort_train <- train_data %>% filter(index == cohort) %>%
+  cohort_train <- train_data %>% 
+    filter(municipality_code == !!municipality_code, !!sex == sex, age_group == !!age_group) %>%
     mutate(year = as.numeric(year)) 
+  
   base_end <- max(cohort_train$year)
   
   # Process train_data: keep year and rename the value column to 'population'
   train_data <- cohort_train %>%
-    select(index, year, population = !!rlang::sym(train_col_name)) %>%
+    select(municipality_code, sex, age_group, year, population = !!rlang::sym(train_col_name)) %>%
     mutate(year = as.numeric(year)) %>%
     mutate(series = "Base period")
   
   # Process test_data similarly and add the base_end row for continuity
   test_data <- test_data %>%
-    filter(index == cohort) %>%
+    filter(municipality_code == !!municipality_code, sex == !!sex, age_group == !!age_group) %>%
     mutate(year = as.numeric(year)) %>%
-    select(index, year, population = !!rlang::sym(test_col_name)) %>%
+    select(municipality_code, sex, age_group, year, population = !!rlang::sym(test_col_name)) %>%
     bind_rows(train_data %>% filter(year == base_end)) %>%
     mutate(series = "True values")
   
   # Process prediction_data similarly and add the base_end row
   prediction_data <- prediction_data %>%
-    filter(index == cohort) %>%
+    filter(municipality_code == !!municipality_code, sex == !!sex, age_group == !!age_group) %>%
     mutate(year = as.numeric(year)) %>%
-    select(index, year, population = !!rlang::sym(prediction_col_name)) %>%
+    select(municipality_code, sex, age_group, year, population = !!rlang::sym(prediction_col_name)) %>%
     bind_rows(train_data %>% filter(year == base_end)) %>%
     mutate(series = "Prediction")
   
@@ -345,7 +349,7 @@ plot_prediction <- function(train_data,
                linetype = "dashed",
                color = "blue") +
     labs(
-      title = paste(prediction_method, "Prediction for Cohort", cohort),
+      title = paste(prediction_method, "Prediction for Cohort", municipality_code, sex, age_group),
       x = "Year",
       y = "Population",
       color = "Data Series"

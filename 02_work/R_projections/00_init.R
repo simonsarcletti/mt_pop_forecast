@@ -25,7 +25,7 @@ wd_res_tmp   <- file.path(wd_res, "tmp")
 
 # load functions
 source(file.path(wd_rproj, "00_functions.R"), encoding = "UTF-8")
-
+source(file.path(wd_rproj, "30_GCE_algorithm.R"), encoding = "UTF-8")
 ##############################################################################~#
 # Needed Packages ##############################################################
 if (!require("tidyverse")) {
@@ -60,6 +60,9 @@ if (!require("ggplot2")) {
 }
 if (!require("zoo")) {
   install.packages("zoo")
+}
+if (!require("nloptr")) {
+  install.packages("nloptr")
 }
 ##############################################################################~#
 # Initial checks ###############################################################

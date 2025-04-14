@@ -65,13 +65,13 @@ district_projection <- district_projection_raw %>%
 district_projection <- district_projection %>%
   mutate(
     coarse_age_group = case_when(
-      age_group %in% c("0-4", "5-9") ~ "bis 9 Jahre",
-      age_group %in% c("10-14", "15-19") ~ "10 bis 19 Jahre",
-      age_group %in% c("20-24", "25-29") ~ "20 bis 29 Jahre",
-      age_group %in% c("30-34", "35-39", "40-44") ~ "30 bis 44 Jahre",
-      age_group %in% c("45-49", "50-54") ~ "45 bis 54 Jahre",
-      age_group %in% c("55-59", "60-64") ~ "55 bis 64 Jahre",
-      age_group %in% c("65-69", "70-74") ~ "65 bis 74 Jahre",
+      age_group %in% c("0-4", "5-9") ~ "0 - 9",
+      age_group %in% c("10-14", "15-19") ~ "10 - 19",
+      age_group %in% c("20-24", "25-29") ~ "20 - 29",
+      age_group %in% c("30-34", "35-39", "40-44") ~ "30 - 44",
+      age_group %in% c("45-49", "50-54") ~ "45 - 54",
+      age_group %in% c("55-59", "60-64") ~ "55 - 64",
+      age_group %in% c("65-69", "70-74") ~ "65 - 74",
       age_group %in% c("75-79", "80+") ~ "75+"
     )
   ) %>%
@@ -149,11 +149,14 @@ for (file in files) {
       TRUE ~ age_group
     )) %>%
     group_by(year, municipality, sex, age_group) %>%
-    summarise(population = sum(population), .groups = "drop")
+    summarise(population = sum(population, na.rm = TRUE),
+              .groups = "drop")
   
   all_munip_pop <- all_munip_pop %>%
     bind_rows(munip_data)
 }
+
+
 
 
 all_munip_pop <- all_munip_pop %>%
@@ -165,10 +168,13 @@ all_munip_pop <- all_munip_pop %>%
   mutate(municipality_code = str_remove(municipality_code, ">"))
 
 
+all_munip_pop %>% filter(municipality_code == 50209, year == 2023) %>% summarise(population = sum(population, na.rm = T))
+
 all_munip_pop <- all_munip_pop %>%
   filter(municipality != "Wien ") %>%
   replace_na(list(population = 0)) %>%
   group_by(municipality_code, sex, age_group) %>%
+  mutate(year = as.numeric(year)) %>%
   arrange(year) %>%
   mutate(rolling_mean_population = rollmean(
     population,
@@ -187,16 +193,17 @@ all_munip_pop <- all_munip_pop %>%
   select(-municipality) %>%
   mutate(
     coarse_age_group = case_when(
-      age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "bis 9 Jahre",
-      age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 bis 19 Jahre",
-      age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 bis 29 Jahre",
-      age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 bis 44 Jahre",
-      age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 bis 54 Jahre",
-      age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 bis 64 Jahre",
-      age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 bis 74 Jahre",
+      age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "0 - 9",
+      age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 - 19",
+      age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 - 29",
+      age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 - 44",
+      age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 - 54",
+      age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 - 64",
+      age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 - 74",
       age_group %in% c("75 bis 79 Jahre", "80+") ~ "75+"
     )
   ) %>%
+  mutate(sex = case_when(sex == "männlich" ~ 1, sex == "weiblich" ~ 2)) %>%
   group_by(municipality_code, sex, year, coarse_age_group) %>%
   summarise(
     population = sum(population),
@@ -468,6 +475,9 @@ all_munip_pop <- all_munip_pop %>%
     )
   )
 
+all_munip_pop$reg_code <- ifelse(all_munip_pop$reg_code <= 1000,
+                                 all_munip_pop$reg_code * 10,
+                                 all_munip_pop$reg_code)
 
 
 if (nrow(all_munip_pop) != 2 * 8 * 2115 * 23) {
@@ -486,3 +496,14 @@ if (length(unique(all_munip_pop$reg_code)) != 121) {
 
 save(all_munip_pop,
      file = file.path(wd_data_work, "all_municipalities_population.RData"))
+
+
+# for emergency: municipality_code, reg_code mapping
+municipality_reg_mapping <- all_munip_pop %>%
+  select(municipality_code, reg_code) %>%
+  distinct(municipality_code, .keep_all = TRUE)
+
+save(
+  municipality_reg_mapping,
+  file = file.path(wd_data_work, "municipality_code_reg_code_mapping.RData")
+)

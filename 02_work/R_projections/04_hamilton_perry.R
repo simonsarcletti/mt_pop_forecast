@@ -1,6 +1,6 @@
 ############################################################################## #
 # Filename
-#    01_hamilton_perry.R
+#    04_hamilton_perry.R
 #
 # Description
 #   Projection with Hamilton-Perry method such as in Hauer 2018
@@ -22,30 +22,31 @@ hp_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
   rename(age_group = coarse_age_group) %>%
   unite("cohort", c("sex", "age_group")) %>%
   select(municipality_code, cohort, year, smoothed_population) %>%
-  rename(population = smoothed_population)
+  rename(population = smoothed_population) %>%
+  mutate(year = as.character(year))
 
 
-# Hamilton/Perry prediction -----------------------------------------------------------
+# Hamilton/Perry prediction ----------------------------------------------------
 return_hp_projection <- function(data,
                                  n_prediction_periods = 3,
                                  jump_off_year = 2021) {
   sex_age_cohorts <- c(
-    "männlich_bis 9 Jahre",
-    "männlich_10 bis 19 Jahre",
-    "männlich_20 bis 29 Jahre",
-    "männlich_30 bis 44 Jahre",
-    "männlich_45 bis 54 Jahre",
-    "männlich_55 bis 64 Jahre",
-    "männlich_65 bis 74 Jahre",
-    "männlich_75+",
-    "weiblich_bis 9 Jahre",
-    "weiblich_10 bis 19 Jahre",
-    "weiblich_20 bis 29 Jahre",
-    "weiblich_30 bis 44 Jahre",
-    "weiblich_45 bis 54 Jahre",
-    "weiblich_55 bis 64 Jahre",
-    "weiblich_65 bis 74 Jahre",
-    "weiblich_75+"
+    "1_0 - 9",
+    "1_10 - 19",
+    "1_20 - 29",
+    "1_30 - 44",
+    "1_45 - 54",
+    "1_55 - 64",
+    "1_65 - 74",
+    "1_75+",
+    "2_0 - 9",
+    "2_10 - 19",
+    "2_20 - 29",
+    "2_30 - 44",
+    "2_45 - 54",
+    "2_55 - 64",
+    "2_65 - 74",
+    "2_75+"
   )
   
   all_years <- 2002:(jump_off_year + n_prediction_periods)
@@ -77,8 +78,8 @@ return_hp_projection <- function(data,
     current <- sex_age_cohorts[i]
     next_cohort <- sex_age_cohorts[i + 1]
     
-    if (grepl("^männlich|^weiblich", current) &&
-        substr(current, 1, 8) == substr(next_cohort, 1, 8) &&
+    if (grepl("^1|^2", current) &&
+        substr(current, 1, 1) == substr(next_cohort, 1, 1) &&
         !grepl("75\\+$", current)) {
       hist_years <- (jump_off_year - 9):jump_off_year
       pop_trend <- data$population[data$cohort == current &
@@ -119,12 +120,12 @@ return_hp_projection <- function(data,
   }
   
   # Child-Woman Ratio logic
-  potential_mothers <- c("weiblich_20 bis 29 Jahre", "weiblich_30 bis 44 Jahre")
+  potential_mothers <- c("2_20 - 29", "2_30 - 44")
   potential_mother_rows <- rownames(hp_projection_matrix) %in% potential_mothers
   
   jump_off_potential_mothers <- hp_projection_matrix[potential_mother_rows, as.character(jump_off_year)]
-  jump_off_boys <- hp_projection_matrix["männlich_bis 9 Jahre", as.character(jump_off_year)]
-  jump_off_girls <- hp_projection_matrix["weiblich_bis 9 Jahre", as.character(jump_off_year)]
+  jump_off_boys <- hp_projection_matrix["1_0 - 9", as.character(jump_off_year)]
+  jump_off_girls <- hp_projection_matrix["2_0 - 9", as.character(jump_off_year)]
   
   boys_woman_ratio <- jump_off_boys / sum(jump_off_potential_mothers, na.rm = TRUE)
   girls_woman_ratio <- jump_off_girls / sum(jump_off_potential_mothers, na.rm = TRUE)
@@ -132,15 +133,15 @@ return_hp_projection <- function(data,
   future_years <- as.character(jump_off_year + 1:n_prediction_periods)
   future_potential_mothers <- colSums(hp_projection_matrix[potential_mother_rows, future_years, drop = FALSE], na.rm = TRUE)
   
-  hp_projection_matrix["männlich_bis 9 Jahre", future_years] <- boys_woman_ratio * future_potential_mothers
-  hp_projection_matrix["weiblich_bis 9 Jahre", future_years] <- girls_woman_ratio * future_potential_mothers
+  hp_projection_matrix["1_0 - 9", future_years] <- boys_woman_ratio * future_potential_mothers
+  hp_projection_matrix["2_0 - 9", future_years] <- girls_woman_ratio * future_potential_mothers
   
   # Return as long tibble
   hp_projection_long <- as_tibble(hp_projection_matrix, rownames = "cohort") %>%
     pivot_longer(cols = -cohort,
                  names_to = "year",
                  values_to = "projected_population") %>%
-    mutate(year = as.integer(year)) %>%
+    mutate(year = as.numeric(year)) %>%
     arrange(cohort, year)
   
   return(hp_projection_long)
@@ -153,6 +154,7 @@ hp_prediction <- hp_data %>%
   ungroup()
 
 
+
 # Export -----------------------------------------------------------------------
 hp_prediction_export <- hp_prediction %>%
   mutate(year = as.character(year)) %>%
@@ -162,14 +164,18 @@ hp_prediction_export <- hp_prediction %>%
            into = c("sex", "age_group"),
            sep = "_") %>%
   rename(smoothed_population = population) %>%
+  mutate(year = as.numeric(year),
+         sex = as.numeric(sex)) %>%
   left_join(select(all_munip_pop, -smoothed_population), 
             by = join_by(municipality_code == municipality_code,
                          sex == sex, 
                          age_group == coarse_age_group,
                          year == year)) %>%
   select(-municipality) %>%
-  unite("index", c("municipality_code", "sex", "age_group")) %>%
-  rename(PRED_hamilton_perry = projected_population)
+  #unite("index", c("municipality_code", "sex", "age_group")) %>%
+  rename(PRED_hamilton_perry = projected_population) %>%
+  mutate(year = as.numeric(year)) %>%
+  select(municipality_code, sex, age_group, year, population, PRED_hamilton_perry)
 
 
 
@@ -178,15 +184,8 @@ save(hp_prediction_export,
 
 
 
-plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 2002:2021),
-                test_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
-                prediction_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
-                train_col_name = "population",
-                test_col_name = "population",
-                prediction_col_name = "PRED_hamilton_perry",
-                cohort = "60624_weiblich_20 bis 29 Jahre",
-                prediction_method = "LIN/EXP")
 
+load(file= file.path(wd_res, "final_HP_prediction.RData"))
 
 plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 2002:2021),
                 test_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
@@ -194,8 +193,12 @@ plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 20
                 train_col_name = "population",
                 test_col_name = "population",
                 prediction_col_name = "PRED_hamilton_perry",
-                cohort = "10423_weiblich_75+",
-                prediction_method = "LIN/EXP")
+                municipality_code = "60305",
+                sex = 1,
+                age_group = "0 - 9",
+                prediction_method = "HP")
+
+
 
 plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 2002:2021),
                 test_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
@@ -203,5 +206,14 @@ plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 20
                 train_col_name = "population",
                 test_col_name = "population",
                 prediction_col_name = "PRED_hamilton_perry",
-                cohort = "60624_männlich_bis 9 Jahre",
-                prediction_method = "LIN/EXP")
+                cohort = "10423_2_75+",
+                prediction_method = "HP")
+
+plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 2002:2021),
+                test_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
+                prediction_data = hp_prediction_export %>% dplyr::filter(year %in% 2022:2024),
+                train_col_name = "population",
+                test_col_name = "population",
+                prediction_col_name = "PRED_hamilton_perry",
+                cohort = "60624_1_0 - 9",
+                prediction_method = "HP")
