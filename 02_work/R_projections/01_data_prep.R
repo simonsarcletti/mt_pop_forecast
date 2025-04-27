@@ -77,7 +77,8 @@ district_projection <- district_projection %>%
   ) %>%
   group_by(district_identifier, sex, year, coarse_age_group) %>%
   summarise(projected_population = sum(projected_population)) %>%
-  relocate(coarse_age_group, .after = sex)
+  relocate(coarse_age_group, .after = sex) %>%
+  mutate(year = as.numeric(year))
 
 
 # control sum
@@ -333,7 +334,6 @@ all_munip_pop <- all_munip_pop %>%
         "Wildendürnbach",
         "Wilfersdorf"
       ) ~ 3161,
-      
       municipality %in% c(
         "Bockfließ",
         "Großebersdorf",
@@ -405,7 +405,6 @@ all_munip_pop <- all_munip_pop %>%
         "Vorderweißenbach",
         "Zwettl an der Rodl"
       ) ~ 4161,
-      
       municipality %in% c(
         "Alberndorf in der Riedmark",
         "Altenberg bei Linz",
@@ -434,7 +433,7 @@ all_munip_pop <- all_munip_pop %>%
         "Damüls",
         "Egg",
         "Hittisau",
-        "Krumbach",
+        #"Krumbach",
         "Langenegg",
         "Lingenau",
         "Mellau",
@@ -444,8 +443,7 @@ all_munip_pop <- all_munip_pop %>%
         "Schoppernau",
         "Schröcken",
         "Schwarzenberg",
-        "Sibratsgfäll",
-        "Warth"
+        "Sibratsgfäll"
       ) ~ 8021,
       municipality %in% c(
         "Alberschwende",
@@ -470,6 +468,10 @@ all_munip_pop <- all_munip_pop %>%
         "Sulzberg",
         "Wolfurt"
       ) ~ 8022,
+      # sonderfall warth und krumbach!
+      municipality_code == "31843" ~ 318,
+      municipality_code == "80239" ~ 8021,
+      municipality_code == "80221" ~ 8021,
       reg_code %in% c(102, 103) ~ 102,
       TRUE ~ reg_code
     )
@@ -478,6 +480,10 @@ all_munip_pop <- all_munip_pop %>%
 all_munip_pop$reg_code <- ifelse(all_munip_pop$reg_code <= 1000,
                                  all_munip_pop$reg_code * 10,
                                  all_munip_pop$reg_code)
+
+# check whether each Bundesland does have all municipalities
+all_munip_pop %>% filter(substr(reg_code, 1, 1) == 9) %>%
+  distinct(municipality_code) %>% nrow()
 
 
 if (nrow(all_munip_pop) != 2 * 8 * 2115 * 23) {

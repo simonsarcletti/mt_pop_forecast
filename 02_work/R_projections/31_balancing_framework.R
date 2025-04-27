@@ -16,7 +16,7 @@
 # calculate max/min allowed deviation from historical data
 # What is the max/min allowed population change over 1-10 years?
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
-load(file.path(wd_data_work, "district_projection.RData"))
+
 
 allowed_deviation <- all_munip_pop %>%
   filter(year %in% 2011:2021) %>%
@@ -37,26 +37,25 @@ allowed_deviation <- all_munip_pop %>%
       population_2021 > 2000 &
         population_2021 <= 5000 ~ "2000-5000",
       population_2021 > 5000 &
-        population_2021 <= 10000 ~ "5000-10000",
-      population_2021 > 10000 ~ "> 10000",
+        population_2021 <= 20000 ~ "5000-20000",
+      population_2021 > 20000 &
+        population_2021 <= 50000 ~ "20000-50000", 
+      population_2021 > 50000 ~ "> 50000",
       TRUE ~ NA_character_
     )
   )
 
 
 # export size group mapping ----------------------------------------------------
-#municipality_size_group_mapping_2021 <- allowed_deviation %>%
-#  select(municipality_code, population_size_group) %>%
-#  distinct(municipality_code, .keep_all = TRUE)
-
-#save(municipality_size_group_mapping,
-#     file = file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+# municipality_size_group_mapping_2021 <- allowed_deviation %>%
+#   select(municipality_code, population_size_group) %>%
+#   distinct(municipality_code, .keep_all = TRUE)
+#
+# save(municipality_size_group_mapping_2021,
+#      file = file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
 # ------------------------------------------------------------------------------
-
-
-
 allowed_deviation <- allowed_deviation %>%
-  filter(year != 2021) %>%
+  #filter(year != 2021) %>%
   ungroup() %>% group_by(year, population_size_group) %>%
   summarise(
     min_percentage_change = min(percentage_change, na.rm = TRUE),
@@ -67,6 +66,7 @@ allowed_deviation <- allowed_deviation %>%
   relocate(prediction_period, .before = population_size_group)
 
 rm(all_munip_pop)
+
 
 
 # GCE balancing ----------------------------------------------------------------
@@ -99,15 +99,19 @@ rm(all_munip_pop)
 #' and computes row and column constraints. The `balance_matrix()` function is then used to
 #' perform the balancing using GCE. The final balanced predictions are merged back into the
 #' original dataset in long format.
-balance_prediction <- function(data, M = 3, prior = "spike") {
+balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
+  pred_col <-  ensym(pred_col_name)
+  
   init_matrix <- data %>%
     ungroup() %>%
-    select(municipality_code, sex_age_cohort, PRED_tuned_LINEXP) %>%
+    select(municipality_code, sex_age_cohort, !!pred_col) %>%
     pivot_wider(id_cols = sex_age_cohort,
                 names_from = municipality_code,
-                values_from = PRED_tuned_LINEXP) %>%
+                values_from = !!pred_col) %>%
     column_to_rownames(var = "sex_age_cohort") %>%
     as.matrix()
+  
+  print(colnames(init_matrix)[1])
   
   support_vectors <- generate_support_vectors(init_matrix, M = M)
   
@@ -115,16 +119,16 @@ balance_prediction <- function(data, M = 3, prior = "spike") {
   row_names <- rownames(init_matrix)
   col_names <- colnames(init_matrix)
   
-  get_bounds <- function(data) {
+  get_bounds <- function(data, pred_col) {
     bounds_df <- data %>%
       group_by(municipality_code,
                min_percentage_change,
                max_percentage_change) %>%
-      summarise(PRED_tuned_LINEXP = sum(PRED_tuned_LINEXP),
+      summarise(!!pred_col := sum(!!pred_col),
                 .groups = 'drop') %>%
       mutate(
-        lower_bound = PRED_tuned_LINEXP * (1 + min_percentage_change / 100),
-        upper_bound = PRED_tuned_LINEXP * (1 + max_percentage_change / 100)
+        lower_bound = !!pred_col * (1 + min_percentage_change / 100),
+        upper_bound = !!pred_col * (1 + max_percentage_change / 100)
       ) %>%
       group_by(municipality_code) %>%
       summarise(
@@ -144,7 +148,7 @@ balance_prediction <- function(data, M = 3, prior = "spike") {
   }
   
   
-  bounds <- get_bounds(data)
+  bounds <- get_bounds(data, pred_col)
   lower_bounds <- bounds$lower_bounds[col_names]
   upper_bounds <- bounds$upper_bounds[col_names]
   
@@ -162,7 +166,6 @@ balance_prediction <- function(data, M = 3, prior = "spike") {
   }
   
   row_constraints <- get_row_constraints(data)[row_names]
-  
   
   
   out_matrix <- balance_matrix(
@@ -191,58 +194,117 @@ balance_prediction <- function(data, M = 3, prior = "spike") {
 }
 
 
-
-## data frame preparation ------------------------------------------------------
-# start with LINEXP prediction
-load(file.path(wd_res, "final_LINEXP_prediction.RData"))
-load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-municipality_reg_mapping$reg_code <- ifelse(
-  municipality_reg_mapping$reg_code <= 1000,
-  municipality_reg_mapping$reg_code * 10,
-  municipality_reg_mapping$reg_code
-)
-
-
-load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
-
-
-
-if (colnames(tuned_LINEXP_pred_export)[1] == "index") {
-  LINEXP_pred_for_balancing <- tuned_LINEXP_pred_export %>%
-    separate(index,
-             into = c("municipality_code", "sex", "age_group"),
-             sep = "_")
+#' Prepare LINEXP Predictions for Balancing
+#'
+#' This function transforms tuned LINEXP prediction data by filtering for the selected years,
+#' merging in regional and size mappings, applying join logic for deviation and district projections,
+#' and grouping the data in preparation for balancing. It also unites the sex and age group columns
+#' into a new column called "sex_age_cohort".
+#'
+#' @param prediction_data A data frame containing the tuned LINEXP predictions.
+#' @param municipality_reg_mapping A data frame mapping municipalities to regions.
+#' @param municipality_size_group_mapping A data frame mapping municipalities to size groups.
+#' @param allowed_deviation A data frame with allowed deviation information.
+#' @param district_projection A data frame with district-level projections.
+#' @param filter_years Numeric vector of years to filter on (default: 2022:2024).
+#'
+#' @return A data frame with the prepared predictions for balancing.
+prepare_prediction_for_balancing <- function(prediction_data,
+                                             municipality_reg_mapping,
+                                             municipality_size_group_mapping,
+                                             allowed_deviation,
+                                             district_projection,
+                                             prediction_years = 2022:2024) {
+  result <- prediction_data %>%
+    filter(year %in% prediction_years) %>%
+    left_join(municipality_reg_mapping, by = "municipality_code") %>%
+    left_join(municipality_size_group_mapping, by = "municipality_code") %>%
+    select(-population) %>%
+    mutate(join_year = jump_off_year - (year - jump_off_year)) %>%
+    left_join(allowed_deviation,
+              by = join_by(join_year == year, population_size_group)) %>%
+    select(-join_year, -population_size_group, -prediction_period) %>%
+    mutate(sex = as.numeric(sex)) %>%
+    left_join(
+      district_projection,
+      by = join_by(
+        reg_code == district_identifier,
+        sex == sex,
+        age_group == coarse_age_group,
+        year == year
+      )
+    ) %>%
+    ungroup() %>%
+    group_by(year, reg_code) %>%
+    unite("sex_age_cohort", c("sex", "age_group"), remove = FALSE)
+  
+  return(result)
 }
 
+
+# data frame preparation -------------------------------------------------------
+## LINEXP prediction -----------------------------------------------------------
+load(file.path(wd_res, "final_LINEXP_prediction.RData"))
+load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+load(file.path(wd_data_work, "district_projection.RData"))
+
+jump_off_year <- 2021
+
 # data on which the function is applied
-LINEXP_pred_for_balancing <- LINEXP_pred_for_balancing %>%
-  filter(year %in% 2022:2024) %>%
-  left_join(municipality_reg_mapping) %>%
-  left_join(municipality_size_group_mapping_2021) %>%
-  select(-c(population, smoothed_population))
+LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(
+  tuned_LINEXP_pred_export,
+  municipality_reg_mapping,
+  municipality_size_group_mapping_2021,
+  allowed_deviation,
+  district_projection
+)
 
-LINEXP_pred_for_balancing <- LINEXP_pred_for_balancing %>%
-  mutate(join_year = as.character(as.numeric(year) - 2)) %>%
-  left_join(allowed_deviation,
-            by = join_by(join_year == year, population_size_group)) %>%
-  select(-c(join_year, population_size_group, prediction_period)) %>%
-  #mutate(sex = case_when(sex == "männlich" ~ 1, sex == "weiblich" ~ 2)) %>%
-  left_join(
-    district_projection,
-    by = join_by(
-      reg_code == district_identifier,
-      sex,
-      age_group == coarse_age_group,
-      year
-    )
-  ) %>%
-  ungroup() %>% group_by(year, reg_code) %>%
-  unite("sex_age_cohort", c("sex", "age_group"), remove = FALSE)
-
-
-
-
-
-balanced_LINEXP_pred_ <- LINEXP_pred_for_balancing %>%
+balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
   group_by(year, reg_code) %>%
-  group_modify( ~ balance_prediction(.x))
+  group_modify(~ balance_prediction(.x))
+
+save(balanced_LINEXP_pred, file = file.path(wd_res, "final_LINEXP_balanced.RData"))
+## hamilton-perry --------------------------------------------------------------
+load(file.path(wd_res, "final_HP_prediction.RData"))
+
+hp_pred_for_balancing <- prepare_prediction_for_balancing(
+  hp_prediction_export,
+  municipality_reg_mapping,
+  municipality_size_group_mapping_2021,
+  allowed_deviation,
+  district_projection
+)
+ 
+balanced_hp_pred <- hp_pred_for_balancing %>%
+  group_by(year, reg_code) %>%
+  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"))
+
+summary(balanced_hp_pred)
+ 
+save(balanced_hp_pred, file = file.path(wd_res, "final_HP_balanced.RData"))
+
+
+# balancing finaly year of LINEXP and HP ---------------------------------------
+load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
+load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+load(file.path(wd_data_work, "district_projection.RData"))
+
+jump_off_year <- 2024
+
+LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(tuned_LINEXP_pred_export,
+                                                              municipality_reg_mapping,
+                                                              municipality_size_group_mapping_2021,
+                                                              allowed_deviation,
+                                                              district_projection,
+                                                              prediction_years = 2025:2035)
+
+
+
+
+
+
+
+
+load(file.path(wd_res, "25-35_HP_prediction.RData"))

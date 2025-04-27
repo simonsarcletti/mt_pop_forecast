@@ -64,6 +64,9 @@ if (!require("zoo")) {
 if (!require("nloptr")) {
   install.packages("nloptr")
 }
+if (!require("rlang")) {
+  install.packages("rlang")
+}
 ##############################################################################~#
 # Initial checks ###############################################################
 message("Your project is located at: ", wd_proj)

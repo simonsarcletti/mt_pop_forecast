@@ -274,7 +274,7 @@ balance_matrix <- function(A, u, v_lower, v_upper, support_vectors, M = 15, prio
                    eval_g_ineq = eval_g_ineq,
                    eval_jac_g_ineq = eval_jac_g_ineq,
                    opts = list("algorithm" = "NLOPT_LD_SLSQP", 
-                               "print_level" = 1,
+                               "print_level" = 0,
                                "xtol_rel" = 1.0e-1,
                                "maxeval" = 10000))
   
