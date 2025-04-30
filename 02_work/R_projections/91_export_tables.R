@@ -101,10 +101,10 @@ rm(LINEXP_table)
 load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
 load(file.path(wd_res, "25-35_HP_prediction.RData"))
 
-prediction_table_hp <- hp_pred_export %>%
+prediction_table_hp <- tuned_LINEXP_pred_export %>%
   mutate(population = case_when(year %in% 2002:2024 ~ population,
-                                year %in% 2025:2035 ~ PRED_hamilton_perry)) %>%
-  select(-PRED_hamilton_perry) %>%
+                                year %in% 2025:2035 ~ PRED_tuned_LINEXP)) %>%
+  select(-PRED_tuned_LINEXP) %>%
   pivot_wider(names_from = year,
               values_from = population)
 
@@ -119,7 +119,7 @@ prediction_table_LINEXP <- tuned_LINEXP_pred_export %>%
   pivot_wider(names_from = year,
               values_from = population)
 
-write.csv(prediction_table_hp,
+write.csv(prediction_table_LINEXP,
           file = file.path(wd_res, "LINEXP_prediction_2025-2035.csv"))
 
 

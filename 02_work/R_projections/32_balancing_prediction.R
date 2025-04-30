@@ -1,9 +1,9 @@
 ############################################################################## #
 # Filename
-#    01_balancing_framework.R
+#    32_balancing_prediction.R
 #
 # Description
-#   Matrix balancing with GCE framework
+#   Balancing of Prediction period
 #
 # Project   OEROK_Evaluierung und Dekomposition
 # Author(s) Simon Sarcletti
@@ -11,57 +11,55 @@
 #
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
-
-# allowed deviation ------------------------------------------------------------
-# calculate max/min allowed deviation from historical data
-# What is the max/min allowed population change over 1-10 years?
+source("00_init.R")
+source("30_GCE_algorithm.R")
+print("start")
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
-
-allowed_deviation <- all_munip_pop %>%
-  filter(year %in% 2011:2021) %>%
+allowed_deviation_pred <- all_munip_pop %>%
+  filter(year %in% 2013:2024) %>%
   select(municipality_code, year, population) %>%
   group_by(municipality_code, year) %>%
   summarise(population = sum(population, na.rm = T)) %>%
   mutate(# Get the population in 2024 for the current group
-    population_2021 = population[year == 2021],
+    population_2024 = population[year == 2024],
     # Calculate the percentage change compared to 2024
-    percentage_change = ((population_2021 - population) / population) * 100) %>%
+    percentage_change = ((population_2024 - population) / population) * 100) %>%
   ungroup() %>%
   mutate(
     population_size_group = case_when(
-      population_2021 < 500 ~ "< 500",
-      population_2021 >= 500 & population_2021 < 1000 ~ "500-1000",
-      population_2021 >= 1000 &
-        population_2021 <= 2000 ~ "1000-2000",
-      population_2021 > 2000 &
-        population_2021 <= 5000 ~ "2000-5000",
-      population_2021 > 5000 &
-        population_2021 <= 20000 ~ "5000-20000",
-      population_2021 > 20000 &
-        population_2021 <= 50000 ~ "20000-50000", 
-      population_2021 > 50000 ~ "> 50000",
+      population_2024 < 500 ~ "< 500",
+      population_2024 >= 500 & population_2024 < 1000 ~ "500-1000",
+      population_2024 >= 1000 &
+        population_2024 <= 2000 ~ "1000-2000",
+      population_2024 > 2000 &
+        population_2024 <= 5000 ~ "2000-5000",
+      population_2024 > 5000 &
+        population_2024 <= 20000 ~ "5000-20000",
+      population_2024 > 20000 &
+        population_2024 <= 50000 ~ "20000-50000", 
+      population_2024 > 50000 ~ "> 50000",
       TRUE ~ NA_character_
     )
   )
 
 
 # export size group mapping ----------------------------------------------------
-# municipality_size_group_mapping_2021 <- allowed_deviation %>%
-#   select(municipality_code, population_size_group) %>%
-#   distinct(municipality_code, .keep_all = TRUE)
+ municipality_size_group_mapping_2024 <- allowed_deviation_pred %>%
+   select(municipality_code, population_size_group) %>%
+   distinct(municipality_code, .keep_all = TRUE)
 #
 # save(municipality_size_group_mapping_2021,
 #      file = file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
 # ------------------------------------------------------------------------------
-allowed_deviation <- allowed_deviation %>%
+allowed_deviation_pred <- allowed_deviation_pred %>%
   #filter(year != 2021) %>%
   ungroup() %>% group_by(year, population_size_group) %>%
   summarise(
     min_percentage_change = min(percentage_change, na.rm = TRUE),
     max_percentage_change = max(percentage_change, na.rm = TRUE)
   ) %>%
-  mutate(prediction_period = paste("pred_period", 2021 - as.numeric(year), "y", sep = "_")) %>%
+  mutate(prediction_period = paste("pred_period", 2024 - as.numeric(year), "y", sep = "_")) %>%
   ungroup() %>%
   relocate(prediction_period, .before = population_size_group)
 
@@ -194,6 +192,7 @@ balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
 }
 
 
+
 #' Prepare LINEXP Predictions for Balancing
 #'
 #' This function transforms tuned LINEXP prediction data by filtering for the selected years,
@@ -242,69 +241,51 @@ prepare_prediction_for_balancing <- function(prediction_data,
 }
 
 
-# data frame preparation -------------------------------------------------------
+
+
 ## LINEXP prediction -----------------------------------------------------------
-load(file.path(wd_res, "final_LINEXP_prediction.RData"))
+load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
 load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+#load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
 load(file.path(wd_data_work, "district_projection.RData"))
 
-jump_off_year <- 2021
+jump_off_year <- 2024
 
 # data on which the function is applied
 LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(
   tuned_LINEXP_pred_export,
   municipality_reg_mapping,
-  municipality_size_group_mapping_2021,
-  allowed_deviation,
-  district_projection
+  municipality_size_group_mapping_2024,
+  allowed_deviation_pred,
+  district_projection,
+  prediction_years = 2025:2035
 )
 
 balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x))
+  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_tuned_LINEXP")) %>%
+  select(municipality_code, reg_code, sex, age_group, year, PRED_tuned_LINEXP, balanced_pred) 
 
-save(balanced_LINEXP_pred, file = file.path(wd_res, "final_LINEXP_balanced.RData"))
+
+
+save(balanced_LINEXP_pred, file = file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
+print("LINEXP finished")
 ## hamilton-perry --------------------------------------------------------------
-load(file.path(wd_res, "final_HP_prediction.RData"))
+load(file.path(wd_res, "25-35_HP_prediction.RData"))
 
 hp_pred_for_balancing <- prepare_prediction_for_balancing(
-  hp_prediction_export,
+  hp_pred_export,
   municipality_reg_mapping,
-  municipality_size_group_mapping_2021,
-  allowed_deviation,
-  district_projection
+  municipality_size_group_mapping_2024,
+  allowed_deviation_pred,
+  district_projection,
+  prediction_years = 2025:2035
 )
- 
+
 balanced_hp_pred <- hp_pred_for_balancing %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"))
+  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry")) %>%
+  select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, balanced_pred)
 
-summary(balanced_hp_pred)
- 
-save(balanced_hp_pred, file = file.path(wd_res, "final_HP_balanced.RData"))
-
-
-# balancing finaly year of LINEXP and HP ---------------------------------------
-load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
-load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
-load(file.path(wd_data_work, "district_projection.RData"))
-
-jump_off_year <- 2024
-
-LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(tuned_LINEXP_pred_export,
-                                                              municipality_reg_mapping,
-                                                              municipality_size_group_mapping_2021,
-                                                              allowed_deviation,
-                                                              district_projection,
-                                                              prediction_years = 2025:2035)
-
-
-
-
-
-
-
-
-load(file.path(wd_res, "25-35_HP_prediction.RData"))
+save(balanced_hp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+print("HP finished")

@@ -186,4 +186,89 @@ ggplot(plot_data_multiple, aes(x = year)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   facet_wrap(~ group_id, scales = "free_y") # Display plots side by side
 
-       
+
+
+
+
+
+# for 2nd workshop
+load(file.path(wd_res, "final_LINEXP_balanced.RData"))
+load(file.path(wd_res, "final_LINEXP_prediction.RData"))
+load(file.path(wd_res, "final_HP_balanced.RData"))
+load(file.path(wd_res, "final_HP_prediction.RData"))
+data <- tuned_LINEXP_test_export
+
+set.seed(123)
+
+train <- tuned_LINEXP_test_export %>% 
+  filter(municipality_code == 41123,
+         sex == 1,
+         age_group == "65 - 74",
+         year %in% 2002:2021) %>% pull(population)       
+
+test <- tuned_LINEXP_test_export %>% 
+  filter(municipality_code == 41123,
+         sex == 1,
+         age_group == "65 - 74",
+         year %in% 2022:2024)  %>% pull(population)
+
+pred <- data %>% 
+  filter(municipality_code == 41123,
+         sex == 1,
+         age_group == "65 - 74",
+         year %in% 2022:2024)  %>% pull(PRED_tuned_LINEXP)
+
+
+plot_prediction_from_vectors(
+  years_train = 2002:2021, 
+  pop_train = train,
+  years_test = 2022:2024, 
+  pop_test = test,
+  years_pred = 2022:2024,  
+  pop_pred =pred,
+  title = "LINEXP: Saxen (OÖ), männlich, 65-74",
+  xlab  = "Year",
+  ylab  = "Population"
+)
+
+
+
+# summarise to entrie munip
+load(file.path(wd_res, "final_LINEXP_balanced.RData"))
+load(file.path(wd_res, "final_LINEXP_prediction.RData"))
+load(file.path(wd_res, "final_HP_balanced.RData"))
+load(file.path(wd_res, "final_HP_prediction.RData"))
+data <- tuned_LINEXP_test_export
+
+train <- tuned_LINEXP_test_export %>% 
+  filter(municipality_code == 20518,
+         year %in% 2002:2021) %>%
+  group_by(year) %>%
+  summarise(population = sum(population), 
+          PRED_tuned_LINEXP = sum(PRED_tuned_LINEXP)) %>% pull(population) 
+
+test <- tuned_LINEXP_test_export %>% 
+  filter(municipality_code == 20518, 
+         year %in% 2022:2024) %>%
+         group_by(year) %>%
+  summarise(population = sum(population), 
+            PRED_tuned_LINEXP = sum(PRED_tuned_LINEXP)) %>% pull(population)  
+
+pred <- data %>% 
+  filter(municipality_code == 20518,
+         year %in% 2022:2024) %>%
+  group_by(year) %>%
+  summarise(PRED_tuned_LINEXP = sum(PRED_tuned_LINEXP)) %>% pull(PRED_tuned_LINEXP) 
+
+
+plot_prediction_from_vectors(
+  years_train = 2002:2021, 
+  pop_train = train,
+  years_test = 2022:2024, 
+  pop_test = test,
+  years_pred = 2022:2024,  
+  pop_pred =pred,
+  title = "LINEXP: Saxen (OÖ)",
+  xlab  = "Year",
+  ylab  = "Population"
+)

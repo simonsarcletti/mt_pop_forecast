@@ -129,7 +129,7 @@ tuned_LINEXP_test_export <- tuned_LINEXP_test %>%
   separate(index,
            into = c("municipality_code", "sex", "age_group"),
            sep = "_")
-save(tuned_LINEXP_pred_export,
+save(tuned_LINEXP_test_export,
      file= file.path(wd_res, "final_LINEXP_prediction.RData"))
 
 

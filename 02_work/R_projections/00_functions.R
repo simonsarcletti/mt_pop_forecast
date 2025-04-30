@@ -460,3 +460,93 @@ mean_absolute_error <- function(actual, predicted, na.rm = TRUE) {
   mean(abs(actual - predicted), na.rm = na.rm)
 }
 
+
+
+#' Plot Train, Test, and Prediction Series from Vectors
+#'
+#' Constructs a combined data frame from three pairs of year/value vectors
+#' (train, test, prediction) and produces a ggplot showing each series with
+#' vertical lines marking the end of training and start of prediction periods.
+#'
+#' @param years_train Numeric vector of years in the training period.
+#' @param pop_train   Numeric vector of values (e.g. population) for the training period.
+#' @param years_test  Numeric vector of years in the test (true) period.
+#' @param pop_test    Numeric vector of values for the test (true) period.
+#' @param years_pred  Numeric vector of years in the prediction period.
+#' @param pop_pred    Numeric vector of predicted values for the prediction period.
+#' @param title       Character string for the plot title (default: `"Population Prediction"`).
+#' @param xlab        Character string for the x-axis label (default: `"Year"`).
+#' @param ylab        Character string for the y-axis label (default: `"Population"`).
+#'
+#' @details
+#' - Checks that each years/_ and pop/_ vector pair are the same length.  
+#' - Builds three internal data frames with a `series` factor for coloring.  
+#' - Adds a dashed vertical line at \code{max(years_train)} and a dotted line at \code{min(years_pred)}.  
+#' - Uses a minimal ggplot theme and manual color mapping:  
+#'   - Train period → black  
+#'   - Test (true) values → blue  
+#'   - Prediction → red  
+#'
+#' @return
+#' A \code{ggplot} object. You can further customize it by adding layers.
+plot_prediction_from_vectors <- function(years_train,
+                                         pop_train,
+                                         years_test,
+                                         pop_test,
+                                         years_pred,
+                                         pop_pred,
+                                         title = "Population Prediction",
+                                         xlab  = "Year",
+                                         ylab  = "Population") {
+  # sanity checks
+  stopifnot(
+    length(years_train) == length(pop_train),
+    length(years_test)  == length(pop_test),
+    length(years_pred)  == length(pop_pred)
+  )
+  
+  # Compute connection point
+  max_train_year <- max(as.numeric(years_train))
+  last_train_val <- tail(as.numeric(pop_train), 1)
+  
+  # build each series
+  df_train <- data.frame(
+    year   = as.numeric(years_train),
+    value  = as.numeric(pop_train),
+    series = "Train period",
+    stringsAsFactors = FALSE
+  )
+  df_test <- data.frame(
+    year   = c(max_train_year, as.numeric(years_test)),
+    value  = c(last_train_val, pop_test),
+    series = "Test (true) values",
+    stringsAsFactors = FALSE
+  )
+  df_pred <- data.frame(
+    year   = c(max_train_year, as.numeric(years_pred)),
+    value  = c(last_train_val, pop_pred),
+    series = "Prediction",
+    stringsAsFactors = FALSE
+  )
+  
+  # combine
+  df_all <- rbind(df_train, df_test, df_pred)
+  
+  # plot
+  ggplot(df_all, aes(x = year, y = value, color = series)) +
+    geom_line(size = 1) +
+    geom_point() +
+    geom_vline(xintercept = max_train_year, linetype = "dashed") +
+    labs(
+      title = title,
+      x     = xlab,
+      y     = ylab,
+      color = NULL
+    ) +
+    scale_color_manual(values = c(
+      "Train period"       = "black",
+      "Test (true) values" = "blue",
+      "Prediction"         = "red"
+    )) +
+    theme_minimal()
+}
