@@ -14,7 +14,8 @@
 source("00_init.R")
 source("30_GCE_algorithm.R")
 print("start")
-load(file.path(wd_data_work, "all_municipalities_population.RData"))
+#load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load("/data/simon/all_municipalities_population.RData")
 
 allowed_deviation_pred <- all_munip_pop %>%
   filter(year %in% 2013:2024) %>%
@@ -244,10 +245,13 @@ prepare_prediction_for_balancing <- function(prediction_data,
 
 
 ## LINEXP prediction -----------------------------------------------------------
-load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
-load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+#load(file.path(wd_res,"25-35_LINEXP_prediction.RData"))
+load("/data/simon/25-35_LINEXP_prediction.RData")
+#load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+load("/data/simon/municipality_code_reg_code_mapping.RData")
 #load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
-load(file.path(wd_data_work, "district_projection.RData"))
+#load(file.path(wd_data_work, "district_projection.RData"))
+load("/data/simon/district_projection.RData")
 
 jump_off_year <- 2024
 
@@ -268,10 +272,11 @@ balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
 
 
 
-save(balanced_LINEXP_pred, file = file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
+save(balanced_LINEXP_pred, file = "2025-2035_LINEXP_balanced.RData")
 print("LINEXP finished")
 ## hamilton-perry --------------------------------------------------------------
-load(file.path(wd_res, "25-35_HP_prediction.RData"))
+#load(file.path(wd_res, "25-35_HP_prediction.RData"))
+load("/data/simon/25-35_HP_prediction.RData")
 
 hp_pred_for_balancing <- prepare_prediction_for_balancing(
   hp_pred_export,
@@ -287,5 +292,6 @@ balanced_hp_pred <- hp_pred_for_balancing %>%
   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry")) %>%
   select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, balanced_pred)
 
-save(balanced_hp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+#save(balanced_hp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+save(balanced_hp_pred, file = "2025-2035_HP_balanced.RData"))
 print("HP finished")
