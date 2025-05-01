@@ -26,6 +26,9 @@ if (!require("dplyr")) {
 if (!require("rlang")) {
   install.packages("rlang")
 }
+if (!require("tibble")) {
+  install.packages("tibble")
+}
 print("start")
 #load(file.path(wd_data_work, "all_municipalities_population.RData"))
 load("/data/simon/all_municipalities_population.RData")
