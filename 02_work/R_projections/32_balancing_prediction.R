@@ -11,8 +11,21 @@
 #
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
-source("00_init.R")
+#source("00_init.R")
 source("30_GCE_algorithm.R")
+
+if (!require("nloptr")) {
+  install.packages("nloptr")
+}
+if (!require("tidyr")) {
+  install.packages("tidyr")
+}
+if (!require("dplyr")) {
+  install.packages("dplyr")
+}
+if (!require("rlang")) {
+  install.packages("rlang")
+}
 print("start")
 #load(file.path(wd_data_work, "all_municipalities_population.RData"))
 load("/data/simon/all_municipalities_population.RData")
