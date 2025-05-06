@@ -35,37 +35,38 @@ generate_support_vectors <- function(A, M = 5) {
   for (i in 1:T) {
     for (j in 1:K) {
       original_value <- A[i, j]
-      lower_bound <- original_value - 0.1 * original_value
-      upper_bound <- original_value + 0.1 * original_value
+      lower_bound    <- original_value - 0.1 * original_value
+      upper_bound    <- original_value + 0.1 * original_value
       
-      # Generate M-1 random numbers
-      random_values <- round(runif(M - 1, min = lower_bound, max = upper_bound), 1)
+      # how many below vs above
+      n_rand <- M - 1
+      n_below <- floor(n_rand / 2)
+      n_above <- n_rand - n_below
       
-      # Calculate the middle index
-      middle_index <- ceiling(M / 2)
+      # generate them separately
+      vals_below <- if (n_below > 0) round(runif(n_below, lower_bound, original_value), 1) else numeric(0)
+      vals_above <- if (n_above > 0) round(runif(n_above, original_value, upper_bound), 1) else numeric(0)
       
-      # Create a vector to hold the support vectors
-      current_support_vectors <- numeric(M)
+      # assemble support vector, placing original in the middle
+      sv <- numeric(M)
+      mid <- ceiling(M / 2)
+      sv[mid] <- original_value
       
-      # Place the original value at the middle index
-      current_support_vectors[middle_index] <- original_value
-      
-      # Fill the remaining slots with the random values
-      if (M > 1) {
-        if (middle_index == 1) {
-          current_support_vectors[2:M] <- random_values
-        } else if (middle_index == M) {
-          current_support_vectors[1:(M - 1)] <- random_values
-        } else {
-          current_support_vectors[1:(middle_index - 1)] <- random_values[1:(middle_index - 1)]
-          current_support_vectors[(middle_index + 1):M] <- random_values[middle_index:(M - 1)]
-        }
+      # fill below
+      if (n_below > 0) {
+        idx_below <- seq_len(n_below)
+        sv[idx_below] <- vals_below
+      }
+      # fill above
+      if (n_above > 0) {
+        idx_above <- (M - n_above + 1):M
+        sv[idx_above] <- vals_above
       }
       
-      support_vectors[i, j, ] <- current_support_vectors
+      support_vectors[i, j, ] <- sv
     }
   }
-  return(support_vectors)
+  support_vectors
 }
 
 
@@ -274,8 +275,9 @@ balance_matrix <- function(A, u, v_lower, v_upper, support_vectors, M = 15, prio
                    eval_g_ineq = eval_g_ineq,
                    eval_jac_g_ineq = eval_jac_g_ineq,
                    opts = list("algorithm" = "NLOPT_LD_SLSQP", 
-                               "print_level" = 0,
+                               "print_level" = 1,
                                "xtol_rel" = 1.0e-1,
+                               #"ftol_abs" = 1.0e-6,
                                "maxeval" = 10000))
   
   if (result$status < 0) {

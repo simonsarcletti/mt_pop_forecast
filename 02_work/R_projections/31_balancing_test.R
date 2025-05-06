@@ -253,16 +253,18 @@ jump_off_year <- 2021
 
 # data on which the function is applied
 LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(
-  tuned_LINEXP_pred_export,
+  tuned_LINEXP_test_export,
   municipality_reg_mapping,
   municipality_size_group_mapping_2021,
   allowed_deviation,
   district_projection
 )
 
-balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
+balanced_LINEXP_test <- LINEXP_pred_for_balancing %>%
+  filter(reg_code == 2010, year == 2024) %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x))
+  group_modify(~ balance_prediction(.x, pred_col = "PRED_tuned_LINEXP")) %>%
+  select(municipality_code, reg_code, sex, age_group, year, min_percentage_change, max_percentage_change, PRED_tuned_LINEXP, balanced_pred, projected_population) 
 
 save(balanced_LINEXP_pred, file = file.path(wd_res, "final_LINEXP_balanced.RData"))
 ## hamilton-perry --------------------------------------------------------------
