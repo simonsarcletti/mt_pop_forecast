@@ -16,19 +16,8 @@
 
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
-train_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
-  rename(age_group = coarse_age_group)
 
 
-train_data_growth_rate <- train_data %>%
-  unite("index", municipality_code, sex, age_group, sep = "_") %>%
-  group_by(index) %>%
-  arrange(year, .by_group = TRUE) %>%
-  select(index, year, population, smoothed_population) %>%
-  mutate(population_change = calculate_population_change(population)) %>%
-  mutate(population_change_factor = calculate_population_change_factor(population)) %>%
-  mutate(smoothed_population_change = calculate_population_change(smoothed_population)) %>%
-  mutate(smoothed_population_change_factor = calculate_population_change_factor(smoothed_population))
 
 
 
@@ -61,10 +50,25 @@ return_LINEXP_prediction <- function(population,
 #
 
 
-
 # Hyperparameter tuning: Find optmal length of base period for each index
 base_period_lengths <- 1:18
-valid_prediction_periods <- 5
+valid_prediction_periods <- 3
+test_years <- 2022:2024
+
+
+train_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
+  rename(age_group = coarse_age_group)
+
+
+train_data_growth_rate <- train_data %>%
+  unite("index", municipality_code, sex, age_group, sep = "_") %>%
+  group_by(index) %>%
+  arrange(year, .by_group = TRUE) %>%
+  select(index, year, population, smoothed_population) %>%
+  mutate(population_change = calculate_population_change(population)) %>%
+  mutate(population_change_factor = calculate_population_change_factor(population)) %>%
+  mutate(smoothed_population_change = calculate_population_change(smoothed_population)) %>%
+  mutate(smoothed_population_change_factor = calculate_population_change_factor(smoothed_population))
 
 LINEXP_validation <- train_data_growth_rate %>%
   group_by(index) %>%
@@ -89,7 +93,7 @@ for(bpl in base_period_lengths) {
 
 LINEXP_MAE <- LINEXP_validation %>%
   group_by(index) %>%
-  filter(year %in% 2020:2024) %>%
+  filter(year %in% test_years) %>%
   select(-c(population_change, population_change)) %>%
   summarise(across(ends_with("bpl"), ~mean_absolute_error(population, .x))) %>%
   rowwise() %>%
@@ -97,6 +101,7 @@ LINEXP_MAE <- LINEXP_validation %>%
     best_bpl = which.min(c_across(ends_with("bpl")))
   ) %>%
   ungroup()
+
 
 
 # test prediction --------------------------------------------------------------
@@ -113,6 +118,44 @@ test_data <- all_munip_pop %>%
   mutate(smoothed_population_change = calculate_population_change(smoothed_population)) %>%
   mutate(smoothed_population_change_factor = calculate_population_change_factor(smoothed_population))
 
+
+# find best base period length
+LINEXP_validation <- test_data %>%
+  group_by(index) %>%
+  arrange(year)
+
+
+for(bpl in base_period_lengths) {
+  new_col_name <- paste0("LINEXP_prediction_", bpl, "bpl")
+  
+  LINEXP_validation <- LINEXP_validation %>%
+    mutate(
+      !!new_col_name := return_LINEXP_prediction(
+        population = population,
+        population_change = smoothed_population_change,
+        population_change_factor = smoothed_population_change_factor,
+        base_period_length = bpl,
+        n_prediction_periods = valid_prediction_periods
+      )
+    )
+}
+
+
+LINEXP_MAE <- LINEXP_validation %>%
+  group_by(index) %>%
+  filter(year %in% test_years) %>%
+  select(-c(population_change, population_change)) %>%
+  summarise(across(ends_with("bpl"), ~mean_absolute_error(population, .x))) %>%
+  rowwise() %>%
+  mutate(
+    best_bpl = which.min(c_across(ends_with("bpl")))
+  ) %>%
+  ungroup()
+
+
+
+
+# prediction
 tuned_LINEXP_test <- test_data %>%
   left_join(select(LINEXP_MAE, index, best_bpl), by = join_by(index)) %>%
   group_by(index) %>%
@@ -121,7 +164,7 @@ tuned_LINEXP_test <- test_data %>%
                                                       population_change = smoothed_population_change,
                                                       population_change_factor = smoothed_population_change_factor,
                                                       base_period_length = best_bpl,
-                                                      n_prediction_periods = 3))
+                                                      n_prediction_periods = prediction_periods))
 
 
 tuned_LINEXP_test_export <- tuned_LINEXP_test %>% 
@@ -135,9 +178,12 @@ save(tuned_LINEXP_test_export,
 
 
 
+
 # tuned (actual) prediction -------------------------------------------------------------
 prediction_periods <- 11
 forecast_years <- (2024 + 1):(2024+prediction_periods)
+
+
 
 prediction_data <- all_munip_pop %>%
   rename(age_group = coarse_age_group) %>%

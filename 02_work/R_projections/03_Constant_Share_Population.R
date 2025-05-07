@@ -30,7 +30,7 @@ return_csp_projection <- function(population,
   jump_off_year_inx <- jump_off_year - 2002 + 1
   print(population[jump_off_year_inx])
   
-  base_period_begin <- jump_off_year_inx - base_period_length + 1
+  base_period_begin <- jump_off_year_inx - base_period_length[1] + 1
   base_period_end <- jump_off_year_inx
   
   average_pop_share <- mean(pop_share[base_period_begin:base_period_end], na.rm = TRUE)
@@ -61,7 +61,7 @@ csp_validation <- csp_data %>%
 
 
 
-for (bpl in 1:base_period_lengths) {
+for (bpl in base_period_lengths) {
   new_col_name <- paste0("csp_prediction_", bpl, "bpl")
   
   csp_validation <- csp_validation %>%
@@ -112,7 +112,7 @@ csp_test <- csp_data %>%
 csp_test %>% filter(reg_code == "6030", year == 2024) %>% pull(PRED_csp_final) %>% sum()
 
 # Export -----------------------------------------------------------------------
-csp_text_export <- csp_test %>%
+csp_test_export <- csp_test %>%
   select(municipality_code,
          sex,
          coarse_age_group,
@@ -121,7 +121,7 @@ csp_text_export <- csp_test %>%
          PRED_csp_final) %>%
   rename(age_group = coarse_age_group)
 
-save(csp_text_export,
+save(csp_test_export,
      file = file.path(wd_res, "final_csp_test_pred_2022-2024.RData"))
 
 
@@ -146,7 +146,7 @@ plot_prediction(
   test_col_name = "population",
   prediction_col_name = "PRED_csp_final",
   municipality_code = "70728",
-  sex = "2",
+  sex = "1",
   age_group = "20 - 29",
   prediction_method = "LIN/EXP"
 )

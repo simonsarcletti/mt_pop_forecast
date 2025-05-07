@@ -18,14 +18,6 @@
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
 
-hp_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
-  rename(age_group = coarse_age_group) %>%
-  unite("cohort", c("sex", "age_group")) %>%
-  select(municipality_code, cohort, year, smoothed_population) %>%
-  rename(population = smoothed_population) %>%
-  mutate(year = as.character(year))
-
-
 # Hamilton/Perry prediction ----------------------------------------------------
 return_hp_projection <- function(data,
                                  n_prediction_periods = 3,
@@ -150,6 +142,14 @@ return_hp_projection <- function(data,
 
 
 # test prediction --------------------------------------------------------------
+hp_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
+  rename(age_group = coarse_age_group) %>%
+  unite("cohort", c("sex", "age_group")) %>%
+  select(municipality_code, cohort, year, smoothed_population) %>%
+  rename(population = smoothed_population) %>%
+  mutate(year = as.character(year))
+
+
 hp_test <- hp_data %>%
   group_by(municipality_code) %>%
   group_modify( ~ return_hp_projection(.x)) %>%
@@ -180,6 +180,8 @@ hp_test_export <- hp_test %>%
 
 save(hp_test_export,
      file= file.path(wd_res, "final_HP_prediction.RData"))
+
+
 
 
 # HP (actual) prediction -------------------------------------------------------
