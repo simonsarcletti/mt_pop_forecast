@@ -347,34 +347,34 @@ load("/data/simon/district_projection.RData")
 
 # Constant Share of population -------------------------------------------------
 #load(file.path(wd_res, "25-35_CSP_prediction.RData"))
-load("/data/simon/25-35_CSP_prediction.RData")
-
-csp_pred_for_balancing <- prepare_prediction_for_balancing(
-  csp_pred_export,
-  municipality_reg_mapping,
-  municipality_size_group_mapping_2024,
-  allowed_deviation_pred,
-  district_projection,
-  prediction_years = 2025:2035
-)
-
-balanced_csp_pred <- csp_pred_for_balancing %>%
-  filter(!reg_code %in% regs_to_not_balance) %>%
-  group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
-  select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, balanced_pred)
-
-
-balanced_csp_pred <- balanced_csp_pred %>%
-  bind_rows(csp_pred_for_balancing %>% 
-              filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
-              rename(balanced_pred = projected_population)) 
-
-
-#save(balanced_csp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
-save(balanced_csp_pred, file = "2025-2035_CSP_balanced.RData")
-print("CSP finished")
+# load("/data/simon/25-35_CSP_prediction.RData")
+# 
+# csp_pred_for_balancing <- prepare_prediction_for_balancing(
+#   csp_pred_export,
+#   municipality_reg_mapping,
+#   municipality_size_group_mapping_2024,
+#   allowed_deviation_pred,
+#   district_projection,
+#   prediction_years = 2025:2035
+# )
+# 
+# balanced_csp_pred <- csp_pred_for_balancing %>%
+#   filter(!reg_code %in% regs_to_not_balance) %>%
+#   group_by(year, reg_code) %>%
+#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
+#   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, balanced_pred)
+# 
+# 
+# balanced_csp_pred <- balanced_csp_pred %>%
+#   bind_rows(csp_pred_for_balancing %>% 
+#               filter(reg_code %in% regs_to_not_balance) %>%
+#               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+#               rename(balanced_pred = projected_population)) 
+# 
+# 
+# #save(balanced_csp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+# save(balanced_csp_pred, file = "2025-2035_CSP_balanced.RData")
+# print("CSP finished")
 
 
 
