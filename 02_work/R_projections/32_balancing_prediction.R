@@ -402,7 +402,7 @@ balanced_csg_pred <- csg_pred_for_balancing %>%
 balanced_csg_pred <- balanced_csg_pred %>%
   bind_rows(csg_pred_for_balancing %>% 
               filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+              select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, projected_population) %>%
               rename(balanced_pred = projected_population)) 
 
 
@@ -429,13 +429,13 @@ balanced_vsg_pred <- vsg_pred_for_balancing %>%
   filter(!reg_code %in% regs_to_not_balance) %>%
   group_by(year, reg_code) %>%
   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_vsg")) %>%
-  select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, balanced_pred)
+  select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, balanced_pred)
 
 
 balanced_vsg_pred <- balanced_vsg_pred %>%
   bind_rows(vsg_pred_for_balancing %>% 
               filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+              select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
               rename(balanced_pred = projected_population)) 
 
 
