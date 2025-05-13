@@ -82,13 +82,13 @@ allowed_deviation <- all_munip_pop %>%
 
 
 # export size group mapping ----------------------------------------------------
- municipality_size_group_mapping_2021 <- allowed_deviation %>%
-   select(municipality_code, population_size_group) %>%
-   distinct(municipality_code, .keep_all = TRUE)
+# municipality_size_group_mapping_2021 <- allowed_deviation %>%
+#   select(municipality_code, population_size_group) %>%
+#   distinct(municipality_code, .keep_all = TRUE)
 
  #save(municipality_size_group_mapping_2021,
 #      file = file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
- save("data/simon/munip_size_group_mapping_2021.RData")
+# save("data/simon/munip_size_group_mapping_2021.RData")
 # ------------------------------------------------------------------------------
 allowed_deviation <- allowed_deviation %>%
   #filter(year != 2021) %>%
