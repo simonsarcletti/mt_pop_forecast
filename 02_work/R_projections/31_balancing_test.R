@@ -163,8 +163,8 @@ balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
       summarise(!!pred_col := sum(!!pred_col),
                 .groups = 'drop') %>%
       mutate(
-        lower_bound = !!pred_col * (1 + min_percentage_change / 100),
-        upper_bound = !!pred_col * (1 + max_percentage_change / 100)
+        lower_bound = !!pred_col * (1 + min_percentage_change * 1.75 / 100),
+        upper_bound = !!pred_col * (1 + max_percentage_change * 1.75 / 100)
       ) %>%
       group_by(municipality_code) %>%
       summarise(
@@ -334,31 +334,31 @@ jump_off_year <- 2021
 
 # Constant Share of Population -------------------------------------------------
 #load(file.path(wd_res, "final_csp_test_pred_2022-2024.RData"))
-load("/data/simon/final_csp_test_pred_2022-2024.RData")
-
-
-csp_test_for_balancing <- prepare_prediction_for_balancing(
-     csp_text_export,
-     municipality_reg_mapping,
-     municipality_size_group_mapping_2021,
-     allowed_deviation,
-     district_projection
-   )
-
-balanced_csp_test <- csp_test_for_balancing %>%
-  filter(!reg_code %in% regs_to_not_balance) %>%
-  group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
-  select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) 
-
-balanced_csp_test <- balanced_csp_test %>%
-  bind_rows(csp_test_for_balancing %>% 
-              filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
-              rename(balanced_pred = projected_population)) 
-
-save(balanced_csp_test, file = "2022-2024_CSP_balanced.RData")
-print("CSP finished")
+# load("/data/simon/final_csp_test_pred_2022-2024.RData")
+# 
+# 
+# csp_test_for_balancing <- prepare_prediction_for_balancing(
+#      csp_text_export,
+#      municipality_reg_mapping,
+#      municipality_size_group_mapping_2021,
+#      allowed_deviation,
+#      district_projection
+#    )
+# 
+# balanced_csp_test <- csp_test_for_balancing %>%
+#   filter(!reg_code %in% regs_to_not_balance) %>%
+#   group_by(year, reg_code) %>%
+#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
+#   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) 
+# 
+# balanced_csp_test <- balanced_csp_test %>%
+#   bind_rows(csp_test_for_balancing %>% 
+#               filter(reg_code %in% regs_to_not_balance) %>%
+#               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+#               rename(balanced_pred = projected_population)) 
+# 
+# save(balanced_csp_test, file = "2022-2024_CSP_balanced.RData")
+# print("CSP finished")
 
 
 # Constant Share of Growth
@@ -377,7 +377,7 @@ csg_test_for_balancing <- prepare_prediction_for_balancing(
 balanced_csg_test <- csg_test_for_balancing %>%
   filter(!reg_code %in% regs_to_not_balance) %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csg_final")) %>%
+  group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_csg_final")) %>%
   select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, projected_population) 
 
 balanced_csg_test <- balanced_csg_test %>%
@@ -406,7 +406,7 @@ vsg_test_for_balancing <- prepare_prediction_for_balancing(
 balanced_vsg_test <- vsg_test_for_balancing %>%
   filter(!reg_code %in% regs_to_not_balance) %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_vsg")) %>%
+  group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
   select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) 
 
 balanced_vsg_test <- balanced_vsg_test %>%
