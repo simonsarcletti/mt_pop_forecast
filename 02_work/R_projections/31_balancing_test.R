@@ -357,7 +357,7 @@ balanced_csp_test <- balanced_csp_test %>%
               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
               rename(balanced_pred = projected_population)) 
 
-save(balanced_vsg_pred, file = "2022-2024_CSP_balanced.RData")
+save(balanced_csp_test, file = "2022-2024_CSP_balanced.RData")
 print("CSP finished")
 
 
@@ -386,7 +386,7 @@ balanced_csg_test <- balanced_csg_test %>%
               select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, projected_population) %>%
               rename(balanced_pred = projected_population)) 
 
-save(balanced_vsg_pred, file = "2022-2024_CSG_balanced.RData")
+save(balanced_csg_test, file = "2022-2024_CSG_balanced.RData")
 print("CSG finished")
 
 
@@ -415,7 +415,7 @@ balanced_vsg_test <- balanced_vsg_test %>%
               select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
               rename(balanced_pred = projected_population)) 
 
-save(balanced_vsg_pred, file = "2022-2024_VSG_balanced.RData")
+save(balanced_vsg_test, file = "2022-2024_VSG_balanced.RData")
 print("VSG finished")
 
 
