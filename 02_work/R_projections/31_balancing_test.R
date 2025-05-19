@@ -435,7 +435,7 @@ csp_vsg_test_for_balancing <- prepare_prediction_for_balancing(
 balanced_csp_vsg_test <- csp_vsg_test_for_balancing %>%
   filter(!reg_code %in% regs_to_not_balance) %>%
   group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
+  group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_csp_vsg")) %>%
   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, projected_population) 
 
 balanced_csp_vsg_test <- balanced_csp_vsg_test %>%
