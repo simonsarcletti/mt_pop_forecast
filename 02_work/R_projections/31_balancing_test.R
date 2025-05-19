@@ -392,35 +392,35 @@ jump_off_year <- 2021
 
 # Variable Share of Growth
 #load(file.path(wd_res, "final_vsg_test_pred_2022-2024.RData"))
-load("/data/simon/final_vsg_test_pred_2022-2024.RData")
+# load("/data/simon/final_vsg_test_pred_2022-2024.RData")
+# 
+# 
+# vsg_test_for_balancing <- prepare_prediction_for_balancing(
+#   vsg_test_for_export,
+#   municipality_reg_mapping,
+#   municipality_size_group_mapping_2021,
+#   allowed_deviation,
+#   district_projection
+# )
+# 
+# balanced_vsg_test <- vsg_test_for_balancing %>%
+#   filter(!reg_code %in% regs_to_not_balance) %>%
+#   group_by(year, reg_code) %>%
+#   group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
+#   select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) 
+# 
+# balanced_vsg_test <- balanced_vsg_test %>%
+#   bind_rows(vsg_test_for_balancing %>% 
+#               filter(reg_code %in% regs_to_not_balance) %>%
+#               select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
+#               rename(balanced_pred = projected_population)) 
+# 
+# save(balanced_vsg_test, file = "2022-2024_VSG_balanced.RData")
+# print("VSG finished")
+# 
 
 
-vsg_test_for_balancing <- prepare_prediction_for_balancing(
-  vsg_test_for_export,
-  municipality_reg_mapping,
-  municipality_size_group_mapping_2021,
-  allowed_deviation,
-  district_projection
-)
-
-balanced_vsg_test <- vsg_test_for_balancing %>%
-  filter(!reg_code %in% regs_to_not_balance) %>%
-  group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
-  select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) 
-
-balanced_vsg_test <- balanced_vsg_test %>%
-  bind_rows(vsg_test_for_balancing %>% 
-              filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
-              rename(balanced_pred = projected_population)) 
-
-save(balanced_vsg_test, file = "2022-2024_VSG_balanced.RData")
-print("VSG finished")
-
-
-
-# csp_csg model ----------------------------------------------------------------
+# csp_vsg model ----------------------------------------------------------------
 load("/data/simon/final_csp-vsg_test_2022-2024.RData")
 #load(file.path(wd_res, "final_csp-vsg_test_2022-2024.RData"))
 
