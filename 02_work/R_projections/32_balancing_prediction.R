@@ -447,7 +447,7 @@ load("/data/simon/district_projection.RData")
 
 # CSP-VSG -----------------------------------------------------
 #load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
-load("/data/simon/25-35_VSG_prediction.RData")
+load("/data/simon/25-35_CSP-VSG_prediction.RData")
 
 csp_vsg_pred_for_balancing <- prepare_prediction_for_balancing(
   csp_vsg_pred,
