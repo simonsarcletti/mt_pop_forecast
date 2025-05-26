@@ -22,6 +22,7 @@ wd_work      <- file.path(wd_proj, "02_work")
 wd_rproj     <- get("wd_rproj", "RPROJ") # folder of the r-project
 wd_res       <- file.path(wd_proj, "03_results", "01_output")
 wd_res_tmp   <- file.path(wd_res, "tmp")
+wd_res_spreadsheets   <- file.path(wd_res, "spreadsheets")
 
 # load functions
 source(file.path(wd_rproj, "00_functions.R"), encoding = "UTF-8")
@@ -66,6 +67,12 @@ if (!require("nloptr")) {
 }
 if (!require("rlang")) {
   install.packages("rlang")
+}
+if (!require("RColorBrewer")) {
+  install.packages("RColorBrewer")
+}
+if (!require("reshape2")) {
+  install.packages("reshape2")
 }
 ##############################################################################~#
 # Initial checks ###############################################################

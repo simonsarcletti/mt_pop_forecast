@@ -447,34 +447,35 @@ load("/data/simon/district_projection.RData")
 
 # CSP-VSG -----------------------------------------------------
 #load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
-load("/data/simon/25-35_CSP-VSG_prediction.RData")
+# load("/data/simon/25-35_CSP-VSG_prediction.RData")
+# 
+# csp_vsg_pred_for_balancing <- prepare_prediction_for_balancing(
+#   csp_vsg_pred,
+#   municipality_reg_mapping,
+#   municipality_size_group_mapping_2024,
+#   allowed_deviation_pred,
+#   district_projection,
+#   prediction_years = 2025:2035
+# )
+# 
+# balanced_csp_vsg_pred <- csp_vsg_pred_for_balancing %>%
+#   filter(!reg_code %in% regs_to_not_balance) %>%
+#   group_by(year, reg_code) %>%
+#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_vsg")) %>%
+#   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, balanced_pred)
+# 
+# 
+# balanced_csp_vsg_pred <- balanced_csp_vsg_pred %>%
+#   bind_rows(csp_vsg_pred_for_balancing %>% 
+#               filter(reg_code %in% regs_to_not_balance) %>%
+#               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, projected_population) %>%
+#               rename(balanced_pred = projected_population)) 
 
-csp_vsg_pred_for_balancing <- prepare_prediction_for_balancing(
-  csp_vsg_pred,
-  municipality_reg_mapping,
-  municipality_size_group_mapping_2024,
-  allowed_deviation_pred,
-  district_projection,
-  prediction_years = 2025:2035
-)
-
-balanced_csp_vsg_pred <- csp_vsg_pred_for_balancing %>%
-  filter(!reg_code %in% regs_to_not_balance) %>%
-  group_by(year, reg_code) %>%
-  group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_vsg")) %>%
-  select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, balanced_pred)
-
-
-balanced_csp_vsg_pred <- balanced_csp_vsg_pred %>%
-  bind_rows(csp_vsg_pred_for_balancing %>% 
-              filter(reg_code %in% regs_to_not_balance) %>%
-              select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, projected_population) %>%
-              rename(balanced_pred = projected_population)) 
+#save(balanced_csp_vsg_pred, file = "2025-2035_CSP-VSG_balanced.RData")
+#print("CSP-VSG finished")
 
 
 
 
-save(balanced_csp_vsg_pred, file = "2025-2035_CSP-VSG_balanced.RData")
-print("CSP-VSG finished")
 
 

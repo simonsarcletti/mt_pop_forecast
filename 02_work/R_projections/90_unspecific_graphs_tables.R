@@ -157,8 +157,6 @@ smoothed_time_series <- all_munip_pop %>%
 
 
 
-
-
 unique_combinations <- smoothed_time_series %>%
   distinct(municipality, sex, age_group)
 
@@ -185,8 +183,6 @@ ggplot(plot_data_multiple, aes(x = year)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   facet_wrap(~ group_id, scales = "free_y") # Display plots side by side
-
-
 
 
 
@@ -272,3 +268,87 @@ plot_prediction_from_vectors(
   xlab  = "Year",
   ylab  = "Population"
 )
+
+
+
+# heatmap of correlation of static covariates ----------------------------------
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+
+covariates <- read.csv2(file.path(wd_data_orig, "static_variables.csv"),
+                        encoding = "latin1")
+
+pop_dynamic_10y <- all_munip_pop %>%
+  filter(year %in% c(2014,2024)) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population)) %>%
+  pivot_wider(names_from = year, values_from = population) %>% 
+  ungroup() %>%
+  mutate(pop_dynamic_10y = `2024` / `2014` - 1)
+
+all <- covariates %>%
+  select(-Name) %>%
+  rename(municipality_code = ID) %>%
+  mutate(
+    klassifikation_palme95 = case_when(
+      klassifikation_palme95 == "Touristische Randgebiete" ~ 1,
+      klassifikation_palme95 == "Extensive Industrieregionen" ~ 2,
+      klassifikation_palme95 == "Umland" ~ 3,
+      klassifikation_palme95 == "Industrialisierte Randgebiete" ~ 4,
+      klassifikation_palme95 == "Mittelstädte" ~ 5,
+      klassifikation_palme95 == "Intensive Tourismusregionen" ~ 6,
+      klassifikation_palme95 == "Intensive Industrieregionen" ~ 7,
+      klassifikation_palme95 == "Großstädte" ~ 8,
+      klassifikation_palme95 == "Metropole" ~ 9,
+      TRUE ~ NA_real_ # This is a catch-all for any values not matched, assign NA
+    )
+  ) %>%
+  mutate(
+    OeV.Güteklassen = case_when(
+      OeV.Güteklassen == "B" ~ 1,
+      OeV.Güteklassen == "C" ~ 2,
+      OeV.Güteklassen == "D" ~ 3,
+      OeV.Güteklassen == "E" ~ 4,
+      OeV.Güteklassen == "F" ~ 5,
+      OeV.Güteklassen == "G" ~ 6,
+      OeV.Güteklassen == "ausser_oev_gk" ~ 7,
+      TRUE ~ NA_real_ # Catch-all for any values not explicitly matched
+    )
+  ) %>%
+  mutate(municipality_code = as.character(municipality_code)) %>%
+  left_join(pop_dynamic_10y %>% select(municipality_code, pop_dynamic_10y))
+
+cor_matrix <- cor(all[2:ncol(all)], use = "pairwise.complete.obs")
+
+melted_correlation_matrix <- melt(cor_matrix) %>%
+  filter(Var2 == "pop_dynamic_10y", Var1 != "pop_dynamic_10y")
+
+
+ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) +
+  geom_tile(color = "white") + 
+  scale_fill_gradient2(low = brewer.pal(n = 8, name = "RdBu")[8], # Dark blue
+                       high = brewer.pal(n = 8, name = "RdBu")[1], # Dark red
+                       mid = "white",
+                       midpoint = 0, limit = c(-1,1), space = "Lab",
+                       name="Correlation") +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 1.5) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, size = 8, hjust = 1), # Rotate x-axis labels
+    axis.text.y = element_text(size = 8), # Adjust y-axis label size
+    axis.title.x = element_blank(), # Remove x-axis title
+    axis.title.y = element_blank(), # Remove y-axis title
+    panel.grid.major = element_blank(), # Remove major grid lines
+    panel.grid.minor = element_blank(), # Remove minor grid lines
+    plot.title = element_text(hjust = 0.5, face = "bold") # Center and bold the plot title
+  ) +
+  coord_fixed() #+
+  #labs(title = "Correlation Covariates and Population Dynamics (2014-2024")
+
+
+
+
+
+
+
+
+

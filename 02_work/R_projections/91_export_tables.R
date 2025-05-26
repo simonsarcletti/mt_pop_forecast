@@ -108,23 +108,45 @@ load(file.path(wd_res, "25-35_VSG_prediction.RData"))
 vsg_pred_for_export <- vsg_pred_for_export %>% rename(coarse_age_group = age_group)
 export_wide_result(vsg_pred_for_export, "population", "PRED_vsg", output_name = "2025-2035_VSG_prediction.csv", wd_res = wd_res)
 
-
 load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
 tuned_LINEXP_pred_export <- tuned_LINEXP_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex))
 export_wide_result(tuned_LINEXP_pred_export, "population", "PRED_tuned_LINEXP", output_name = "2025-2035_LINEXP_prediction.csv", wd_res = wd_res)
 
+load(file.path(wd_res, "25-35_HP_prediction.RData"))
+hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_hamilton_perry", output_name = "2025-2035_HP_prediction.csv", wd_res = wd_res)
+
+load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
+csp_vsg_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_csp_vsg", output_name = "2025-2035_CSP-VSG_prediction.csv", wd_res = wd_res)
+
+
+
+
+# export balanced --------------------------------------------------------------
 load(file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
 balanced_LINEXP_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
   export_wide_result(., "PRED_tuned_LINEXP", "balanced_pred", output_name = "2025-2035_LINEXP_balanced.csv", wd_res = wd_res)
 
 
-
-load(file.path(wd_res, "25-35_HP_prediction.RData"))
-hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
-export_wide_result(., "population", "PRED_hamilton_perry", output_name = "2025-2035_HP_prediction.csv", wd_res = wd_res)
-
 load(file.path(wd_res, "2025-2035_HP_balanced.RData"))
 balanced_hp_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
   export_wide_result(., "PRED_hamilton_perry", "balanced_pred", output_name = "2025-2035_HP_balanced.csv", wd_res = wd_res)
+
+
+load(file.path(wd_res, "2025-2035_CSP_balanced.RData"))
+balanced_csp_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
+  export_wide_result(., "PRED_csp_final", "balanced_pred", output_name = "2025-2035_CSP_balanced.csv", wd_res = wd_res)
+
+
+load(file.path(wd_res, "2025-2035_VSG_balanced.RData"))
+balanced_vsg_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
+  export_wide_result(., "PRED_vsg", "balanced_pred", output_name = "2025-2035_VSG_balanced.csv", wd_res = wd_res)
+
+
+load(file.path(wd_res, "2025-2035_CSP-VSG_balanced.RData"))
+balanced_csp_vsg_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
+  export_wide_result(., "PRED_csp_vsg", "balanced_pred", output_name = "2025-2035_CSP-VSG_balanced.csv", wd_res = wd_res)
+
 
 
