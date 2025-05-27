@@ -121,6 +121,18 @@ csp_vsg_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeri
   export_wide_result(., "population", "PRED_csp_vsg", output_name = "2025-2035_CSP-VSG_prediction.csv", wd_res = wd_res)
 
 
+tft_pred <- read.csv2(file.path(wd_res, "tft_prediction_2025-2035.csv"), sep = ",") %>%
+  filter(quantile == "0.5") %>%
+  select(-quantile) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
+  rename(PRED_tft = prediction) %>%
+  mutate(population = NA)
+
 
 
 # export balanced --------------------------------------------------------------

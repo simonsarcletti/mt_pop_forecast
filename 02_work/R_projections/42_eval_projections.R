@@ -95,10 +95,8 @@ load(file.path(wd_res, "final_vsg_test_pred_2022-2024.RData"))
 vsg_test_for_export <- vsg_test_for_export %>% mutate(sex = as.character(sex))
 load(file.path(wd_res, "final_csp-vsg_test_2022-2024.RData"))
 csp_vsg_test <- csp_vsg_test %>% mutate(sex = as.character(sex))
-
-
-tft_test <- read.csv2(file.path(wd_res, "tft_test_2022-2024.csv"), sep = ",") %>%
-  mutate(prediction = as.numeric(prediction)) %>%
+load(file.path(wd_res, "tft_test_2022-2024.RData"))
+tft_test <- dataset %>% mutate(prediction = as.numeric(prediction)) %>%
   filter(quantile == "0.5") %>%
   select(-quantile) %>%
   separate(
@@ -109,8 +107,8 @@ tft_test <- read.csv2(file.path(wd_res, "tft_test_2022-2024.csv"), sep = ",") %>
   mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
   rename(PRED_tft = prediction) %>%
   mutate(population = NA)
-  
 
+  
 
 # evaluate along size groups
 evaluation_of_all_unbalanced <- evaluate_predictions(
@@ -133,7 +131,7 @@ evaluation_of_all_unbalanced <- evaluate_predictions(
   grouping_col_nice = "Population Size Group",
   model_names = c("LINEXP", "HP", "CSP", "VSG", "CSP-VSG", "TFT"),
   print_latex = TRUE)
-)
+
 
 evaluation_of_all_unbalanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_unbalanced_size_group.csv"))
 
@@ -154,16 +152,18 @@ evaluation_of_all_unbalanced <- evaluate_predictions(
                       "PRED_vsg",
                       "PRED_csp_vsg",
                       "PRED_tft"),
-  grouping_col    = age_group,
+  grouping_col    = NULL,
   prediction_years = 2022:2024,
   grouping_col_nice = "Population Size Group",
   model_names = c("LINEXP", "HP", "CSP", "VSG", "CSP-VSG", "TFT"),
   print_latex = TRUE)
-)
+
 
 evaluation_of_all_unbalanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_unbalanced_age_group.csv"))
 
 evaluation_of_all_unbalanced[2]
+
+
 
 # evaluate balanced preds ------------------------------------------------------
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
@@ -191,31 +191,84 @@ load(file.path(wd_res, "2022-2024_HP_test_balanced.RData"))
 balanced_hp_pred <- balanced_hp_pred %>%
   ungroup() %>%
   select(year, municipality_code, sex, age_group, balanced_pred) %>%
-  rename(PRED_linexp = balanced_pred) %>%
+  rename(PRED_HP = balanced_pred) %>%
   mutate(population = NA) %>%
   mutate(sex = as.character(sex))
 
 load(file.path(wd_res, "2022-2024_VSG_balanced.RData"))
-balanced_LINEXP_pred <- balanced_LINEXP_pred %>%
+balanced_vsg_test <- balanced_vsg_test %>%
+  ungroup() %>%
+  mutate(balanced_vsg = case_when(is.na(PRED_vsg) ~ projected_population,
+                              .default = PRED_vsg )) %>%
+  select(year, municipality_code, sex, age_group, balanced_vsg) %>%
+  mutate(population = NA) %>%
+  mutate(sex = as.character(sex))
+
+load(file.path(wd_res, "2022-2024_CSP_balanced.RData"))
+balanced_csp_test <- balanced_csp_test %>%
+  ungroup() %>%
+  mutate(balanced_csp = case_when(is.na(PRED_csp_final) ~ projected_population,
+                                  .default = PRED_csp_final )) %>%
+  select(year, municipality_code, sex, age_group, balanced_csp) %>%
+  mutate(population = NA) %>%
+  mutate(sex = as.character(sex))
+
+load(file.path(wd_res, "2022-2024_CSP_VSG_balanced.RData"))
+balanced_CSP_VSG_pred <- balanced_CSP_VSG_pred %>%
   ungroup() %>%
   select(year, municipality_code, sex, age_group, balanced_pred) %>%
   rename(PRED_linexp = balanced_pred) %>%
   mutate(population = NA) %>%
   mutate(sex = as.character(sex))
 
-load(file.path(wd_res, "2022-2024_LINEXP_test_balanced.RData"))
-balanced_LINEXP_pred <- balanced_LINEXP_pred %>%
-  ungroup() %>%
-  select(year, municipality_code, sex, age_group, balanced_pred) %>%
-  rename(PRED_linexp = balanced_pred) %>%
-  mutate(population = NA) %>%
-  mutate(sex = as.character(sex))
 
-load(file.path(wd_res, "2022-2024_LINEXP_test_balanced.RData"))
-balanced_LINEXP_pred <- balanced_LINEXP_pred %>%
-  ungroup() %>%
-  select(year, municipality_code, sex, age_group, balanced_pred) %>%
-  rename(PRED_linexp = balanced_pred) %>%
-  mutate(population = NA) %>%
-  mutate(sex = as.character(sex))
+evaluation_of_all_balanced <- evaluate_predictions(
+  prediction_dfs  = list(balanced_LINEXP_pred,
+                         balanced_hp_pred,
+                         balanced_csp_test,
+                         balanced_vsg_test
+                         #csp_vsg_test,
+                         #tft_test
+                         ),
+  true_value_df   = all_pop_for_evaluation,
+  true_pop_col    = population,
+  pred_cols       = c("PRED_linexp",
+                      "PRED_HP",
+                      "balanced_csp",
+                      "balanced_vsg"
+                      #"PRED_csp_vsg",
+                      #"PRED_tft"
+                      ),
+  grouping_col    = population_size_group,
+  prediction_years = 2022:2024,
+  grouping_col_nice = "Population Size Group",
+  model_names = c("LINEXP", "HP", "CSP", "VSG"),#, "CSP-VSG", "TFT"),
+  print_latex = TRUE)
+evaluation_of_all_balanced[1]
+evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_size_group.csv"))
 
+
+evaluation_of_all_balanced <- evaluate_predictions(
+  prediction_dfs  = list(balanced_LINEXP_pred,
+                         balanced_hp_pred,
+                         balanced_csp_test,
+                         balanced_vsg_test
+                         #csp_vsg_test,
+                         #tft_test
+  ),
+  true_value_df   = all_pop_for_evaluation,
+  true_pop_col    = population,
+  pred_cols       = c("PRED_linexp",
+                      "PRED_HP",
+                      "balanced_csp",
+                      "balanced_vsg"
+                      #"PRED_csp_vsg",
+                      #"PRED_tft"
+  ),
+  grouping_col    = age_group,
+  prediction_years = 2022:2024,
+  grouping_col_nice = "Altersgruppe",
+  model_names = c("LINEXP", "HP", "CSP", "VSG"),#, "CSP-VSG", "TFT"),
+  print_latex = TRUE)
+evaluation_of_all_balanced[1]
+evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_age_group.csv"))
