@@ -452,7 +452,8 @@ tft_test_for_balancing <- prepare_prediction_for_balancing(
   tft_test,
   municipality_reg_mapping,
   municipality_size_group_mapping_2021,
-  allowed_deviation_pred,
+  allowed_deviation,
+  district_projection
 )
 
 balanced_tft_test <- tft_test_for_balancing %>%
