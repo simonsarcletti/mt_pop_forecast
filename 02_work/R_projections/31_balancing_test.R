@@ -435,7 +435,7 @@ tft_test <- read.csv2("/data/simon/tft_test_2022-2024.csv", sep = ",") %>%
 #                      sep = ",") %>%
 #  mutate(prediction = as.numeric(prediction))
 
-tft_test2 <- tft_test %>%
+tft_test <- tft_test %>%
   filter(quantile == 0.5) %>%
   mutate(prediction = case_when(prediction < 0 ~ 0,
                                 .default = as.numeric(prediction))) %>%
