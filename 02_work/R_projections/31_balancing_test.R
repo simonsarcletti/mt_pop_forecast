@@ -340,66 +340,66 @@ jump_off_year <- 2021
 
 #  Constant Share of Population -------------------------------------------------
 # load(file.path(wd_res, "final_csp_test_pred_2022-2024.RData"))
-  load("/data/simon/final_csp_test_pred_2022-2024.RData")
- 
- 
-  csp_test_for_balancing <- prepare_prediction_for_balancing(
-       csp_text_export,
-       municipality_reg_mapping,
-       municipality_size_group_mapping_2021,
-       allowed_deviation,
-       district_projection
-     )
- 
-  balanced_csp_test <- csp_test_for_balancing %>%
-    filter(!reg_code %in% regs_to_not_balance) %>%
-    group_by(year, reg_code) %>%
-    group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
-    select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population, balanced_pred)
- 
-  balanced_csp_test <- balanced_csp_test %>%
-    bind_rows(csp_test_for_balancing %>%
-                filter(reg_code %in% regs_to_not_balance) %>%
-                select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
-                mutate(balanced_pred = NA))
- 
-  save(balanced_csp_test, file = "2022-2024_CSP_balanced.RData")
-  print("CSP finished")
+  # load("/data/simon/final_csp_test_pred_2022-2024.RData")
+  # 
+  # 
+  # csp_test_for_balancing <- prepare_prediction_for_balancing(
+  #      csp_text_export,
+  #      municipality_reg_mapping,
+  #      municipality_size_group_mapping_2021,
+  #      allowed_deviation,
+  #      district_projection
+  #    )
+  # 
+  # balanced_csp_test <- csp_test_for_balancing %>%
+  #   filter(!reg_code %in% regs_to_not_balance) %>%
+  #   group_by(year, reg_code) %>%
+  #   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
+  #   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population, balanced_pred)
+  # 
+  # balanced_csp_test <- balanced_csp_test %>%
+  #   bind_rows(csp_test_for_balancing %>%
+  #               filter(reg_code %in% regs_to_not_balance) %>%
+  #               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+  #               mutate(balanced_pred = NA))
+  # 
+  # save(balanced_csp_test, file = "2022-2024_CSP_balanced.RData")
+  # print("CSP finished")
  
 
 #  Variable Share of Growth
 # load(file.path(wd_res, "final_vsg_test_pred_2022-2024.RData"))
-  load("/data/simon/final_vsg_test_pred_2022-2024.RData")
- 
- 
-  vsg_test_for_balancing <- prepare_prediction_for_balancing(
-    vsg_test_for_export,
-    municipality_reg_mapping,
-    municipality_size_group_mapping_2021,
-    allowed_deviation,
-    district_projection
-  )
- 
-  balanced_vsg_test <- vsg_test_for_balancing %>%
-    filter(!reg_code %in% regs_to_not_balance) %>%
-    group_by(year, reg_code) %>%
-    group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
-    select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population, balanced_pred)
- 
-  balanced_vsg_test <- balanced_vsg_test %>%
-    bind_rows(vsg_test_for_balancing %>%
-                filter(reg_code %in% regs_to_not_balance) %>%
-                select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
-                mutate(balanced_pred = NA))
-    
- 
-  save(balanced_vsg_test, file = "2022-2024_VSG_balanced.RData")
-  print("VSG finished")
+  # load("/data/simon/final_vsg_test_pred_2022-2024.RData")
+  # 
+  # 
+  # vsg_test_for_balancing <- prepare_prediction_for_balancing(
+  #   vsg_test_for_export,
+  #   municipality_reg_mapping,
+  #   municipality_size_group_mapping_2021,
+  #   allowed_deviation,
+  #   district_projection
+  # )
+  # 
+  # balanced_vsg_test <- vsg_test_for_balancing %>%
+  #   filter(!reg_code %in% regs_to_not_balance) %>%
+  #   group_by(year, reg_code) %>%
+  #   group_modify(~ balance_prediction(.x, M = 5, pred_col_name = "PRED_vsg")) %>%
+  #   select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population, balanced_pred)
+  # 
+  # balanced_vsg_test <- balanced_vsg_test %>%
+  #   bind_rows(vsg_test_for_balancing %>%
+  #               filter(reg_code %in% regs_to_not_balance) %>%
+  #               select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
+  #               mutate(balanced_pred = NA))
+  #   
+  # 
+  # save(balanced_vsg_test, file = "2022-2024_VSG_balanced.RData")
+  # print("VSG finished")
  
 
 #  csp_vsg model ----------------------------------------------------------------
-# load("/data/simon/final_csp-vsg_test_2022-2024.RData")
- load(file.path(wd_res, "final_csp-vsg_test_2022-2024.RData"))
+ load("/data/simon/final_csp-vsg_test_2022-2024.RData")
+# load(file.path(wd_res, "final_csp-vsg_test_2022-2024.RData"))
  
   csp_vsg_test_for_balancing <- prepare_prediction_for_balancing(
     csp_vsg_test,
@@ -453,7 +453,6 @@ tft_test_for_balancing <- prepare_prediction_for_balancing(
   municipality_reg_mapping,
   municipality_size_group_mapping_2021,
   allowed_deviation_pred,
-  district_projection,
 )
 
 balanced_tft_test <- tft_test_for_balancing %>%
@@ -486,6 +485,6 @@ balanced_tft_test <- balanced_tft_test %>%
         projected_population
       ) %>%
       mutate(balanced_pred = NA))
-  )
+  
 save(balanced_tft_test, file = "2022-2024_TFT_balanced.RData")
 print("TFT finished")
