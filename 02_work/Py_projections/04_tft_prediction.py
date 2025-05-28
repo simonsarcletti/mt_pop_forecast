@@ -23,6 +23,7 @@ if cuda_available:
 import copy
 from pathlib import Path
 import warnings
+warnings.filterwarnings("ignore")
 from pyreadr import read_r
 
 import lightning.pytorch as pl
@@ -31,16 +32,18 @@ from lightning.pytorch.loggers import TensorBoardLogger
 import numpy as np
 import pandas as pd
 import torch
-
 np.Inf = np.inf
 
+import pickle
 
-from pytorch_forecasting import Baseline, TemporalFusionTransformer, TimeSeriesDataSet
-from pytorch_forecasting.data import EncoderNormalizer
-from pytorch_forecasting.metrics import MAE, SMAPE, PoissonLoss, QuantileLoss
 from pytorch_forecasting.models.temporal_fusion_transformer.tuning import (
     optimize_hyperparameters,
 )
+
+from pytorch_forecasting import Baseline, TemporalFusionTransformer, TimeSeriesDataSet
+from pytorch_forecasting.data import EncoderNormalizer
+from pytorch_forecasting.metrics import QuantileLoss
+
 
 data_path = r"/data/simon/"
 #data_path = r"C:\Users\simon.sarcletti\OneDrive - FH JOANNEUM\FH Joanneum - DAT\XX_Masterarbeit\05_Empirical_work\01_data\02_work"
@@ -114,22 +117,22 @@ for col in static_categoricals:
     merged_data[col] = merged_data[col].astype(str)
 
 
-max_prediction_length = 5
-max_encoder_length = 18
-training_cutoff = 2019  # training data ends in 2019, validation starts in 2020
+# Define the time series dataset
+max_prediction_length = 11
+max_encoder_length = 10
+training_cutoff = 2013  # training data ends in 2019, validation starts in 2020
 
 training = TimeSeriesDataSet(
-    merged_data[lambda x: x.year <= training_cutoff],
+    merged_data,#[lambda x: x.year <= training_cutoff],
     time_idx="year",
     target="population",
     group_ids=["index"],
     min_encoder_length=max_encoder_length
     // 2,  # keep encoder length long (as it is in the validation set)
     max_encoder_length=max_encoder_length,
-    min_prediction_length=5,
     max_prediction_length=max_prediction_length,
-    static_categoricals=static_categoricals,
-    static_reals =static_reals,
+    static_categoricals= static_categoricals,
+    static_reals = static_reals,
     time_varying_unknown_reals=[
         "population",
     ],
@@ -144,8 +147,8 @@ validation = TimeSeriesDataSet.from_dataset(
     merged_data,
     predict=True,
     stop_randomization=True,
-    min_prediction_idx=2020,  # prediction windows begin in 2019
-    max_prediction_length=5,  # prediction windows are 5 years long
+    min_prediction_idx=training_cutoff+1,  # prediction windows begin in 2014
+    max_prediction_length=max_prediction_length,  # prediction windows are 11 years long
 )
 
 batch_size = 64  # set this between 32 to 128
@@ -160,8 +163,7 @@ val_dataloader = validation.to_dataloader(
 pl.seed_everything(42)
 trainer = pl.Trainer(
     accelerator="gpu",
-    # clipping gradients is a hyperparameter and important to prevent divergance
-    # of the gradient for recurrent neural networks
+    # clipping gradients is a hyperparameter and important to prevent divergance of the gradient for recurrent neural networks
     gradient_clip_val=0.1,
 )
 
@@ -220,12 +222,8 @@ trainer.fit(
     val_dataloaders=val_dataloader,
 )
 
-import pickle
 
-from pytorch_forecasting.models.temporal_fusion_transformer.tuning import (
-    optimize_hyperparameters,
-)
-
+# hypermeter optimization --------------------------------------------------------------------------------
 # create study
 study = optimize_hyperparameters(
     train_dataloader,
@@ -241,15 +239,15 @@ study = optimize_hyperparameters(
     dropout_range=(0.1, 0.3),
     trainer_kwargs=dict(limit_train_batches=30),
     reduce_on_plateau_patience=4,
-    use_learning_rate_finder=True,  # use Optuna to find ideal learning rate or use in-built learning rate finder
+    use_learning_rate_finder=False,  # use Optuna to find ideal learning rate or use in-built learning rate finder
 )
 
 # save study results - also we can resume tuning at a later point in time
 with open("/home/v18y97/mt_pop_forecast/prediction_study.pkl", "wb") as fout:
     pickle.dump(study, fout)
 
-# show best hyperparameters
-print(study.best_trial.params)
+
+# Prediction with the best model -------------------------------------------------------------
 
 # load the best model according to the validation loss
 # (given that we use early stopping, this is not necessarily the last epoch)
@@ -267,7 +265,6 @@ encoder_data = merged_data[lambda df: df.year > df.year.max() - max_encoder_leng
 
 last_data = merged_data[lambda x: x.year == x.year.max()]
 
-
 decoder_data = pd.concat(
     [
         last_data.assign(year=lambda x, i=i: x['year'] + i)
@@ -275,6 +272,7 @@ decoder_data = pd.concat(
     ],
     ignore_index=True,
 )
+
 # combine encoder and decoder data
 new_prediction_data = pd.concat([encoder_data, decoder_data], ignore_index=True)
 
@@ -292,6 +290,7 @@ static_reals = ['Index_Pendlersaldos_2022','anteil_ue75_2014',
 for col in static_categoricals:
     new_prediction_data[col] = new_prediction_data[col].astype(str)
 
+# actual prediction
 new_raw_predictions = best_tft.predict(
     new_prediction_data,
     mode="raw",
@@ -302,11 +301,10 @@ new_raw_predictions = best_tft.predict(
 
 arr = new_raw_predictions.output.prediction.detach().cpu().numpy()
 
-# Transpose if needed: ensure shape is (samples, steps, quantiles)
-#if arr.shape[2] == 3:  # then it's (samples, quantiles, steps)
-#    arr = arr.transpose(0, 2, 1)
 
-n_samples, n_steps, n_quantiles = arr.shape  # (33840, 3, 7) if 3 years, 7 quantiles
+
+n_samples, n_steps, n_quantiles = arr.shape  # (33840, 11, 7) if 11 years, 7 quantiles
+print(f"Shape of predictions: {arr.shape}")
 # Repeat each sample index
 original_index = np.repeat(new_raw_predictions.index["index"], n_quantiles * n_steps)
 
