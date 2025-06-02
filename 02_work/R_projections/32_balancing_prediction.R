@@ -88,8 +88,8 @@ allowed_deviation_pred <- all_munip_pop %>%
    select(municipality_code, population_size_group) %>%
    distinct(municipality_code, .keep_all = TRUE)
 #
- save(municipality_size_group_mapping_2024,
-     file = file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
+# save(municipality_size_group_mapping_2024,
+#     file = file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
 # ------------------------------------------------------------------------------
 allowed_deviation_pred <- allowed_deviation_pred %>%
   #filter(year != 2021) %>%
