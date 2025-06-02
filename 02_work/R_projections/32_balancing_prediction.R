@@ -297,11 +297,11 @@ if (linux) {
 } else {
   load(file.path(wd_data_work, "district_projection.RData"))
 }
-if (linux) {
-  load("/data/simon/munip_size_group_mapping_2024.RData")
-} else {
-  load(file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
-}
+#if (linux) {
+#  load("/data/simon/munip_size_group_mapping_2024.RData")
+#} else {
+#  load(file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
+#}
 
 ## LINEXP prediction -----------------------------------------------------------
 #load(file.path(wd_res,"25-35_LINEXP_prediction.RData"))
