@@ -12,6 +12,8 @@
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
 
+linux <- FALSE
+
 #source("00_init.R")
 source("30_GCE_algorithm.R")
 
@@ -31,12 +33,19 @@ if (!require("tibble")) {
   install.packages("tibble")
 }
 print("start")
-#load(file.path(wd_data_work, "all_municipalities_population.RData"))
-load("/data/simon/all_municipalities_population.RData")
-#load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+
+if ( linux){
+  load("/data/simon/all_municipalities_population.RData")
+} else {
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+}
+
+
+if ( linux){
 load("/data/simon/municipality_code_reg_code_mapping.RData")
-
-
+} else {
+  load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+}
 
 regs_to_not_balance <- all_munip_pop %>%
   ungroup() %>%
@@ -291,12 +300,22 @@ prepare_prediction_for_balancing <- function(prediction_data,
 
 
 # parameters and data ----------------------------------------------------------
-#load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-load("/data/simon/municipality_code_reg_code_mapping.RData")
-#load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
-load("/data/simon/munip_size_group_mapping_2021.RData")
-#load(file.path(wd_data_work, "district_projection.RData"))
-load("/data/simon/district_projection.RData")
+if (linux) {
+  load("/data/simon/municipality_code_reg_code_mapping.RData")
+} else {
+  load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+}
+if (linux) {
+  load("/data/simon/district_projection.RData")
+} else {
+  load(file.path(wd_data_work, "district_projection.RData"))
+}
+if (linux) {
+  load("/data/simon/munip_size_group_mapping_2021.RData")
+} else {
+  load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+}
+
 
 jump_off_year <- 2021
 

@@ -11,6 +11,9 @@
 #
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
+
+linux <- TRUE
+
 #source("00_init.R")
 source("30_GCE_algorithm.R")
 
@@ -29,11 +32,18 @@ if (!require("rlang")) {
 if (!require("tibble")) {
   install.packages("tibble")
 }
-print("start")
-#load(file.path(wd_data_work, "all_municipalities_population.RData"))
-load("/data/simon/all_municipalities_population.RData")
-#load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-load("/data/simon/municipality_code_reg_code_mapping.RData")
+if ( linux){
+  load("/data/simon/all_municipalities_population.RData")
+} else {
+  load(file.path(wd_data_work, "all_municipalities_population.RData"))
+}
+
+
+if ( linux){
+  load("/data/simon/municipality_code_reg_code_mapping.RData")
+} else {
+  load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+}
 
 
 
@@ -78,8 +88,8 @@ allowed_deviation_pred <- all_munip_pop %>%
    select(municipality_code, population_size_group) %>%
    distinct(municipality_code, .keep_all = TRUE)
 #
-# save(municipality_size_group_mapping_2021,
-#      file = file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
+ save(municipality_size_group_mapping_2024,
+     file = file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
 # ------------------------------------------------------------------------------
 allowed_deviation_pred <- allowed_deviation_pred %>%
   #filter(year != 2021) %>%
@@ -276,11 +286,22 @@ prepare_prediction_for_balancing <- function(prediction_data,
 
 # parameters and addtional data ------------------------------------------------
 jump_off_year <- 2024
-#load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
-load("/data/simon/municipality_code_reg_code_mapping.RData")
-#load(file.path(wd_data_work, "munip_size_group_mapping_2021.RData"))
-#load(file.path(wd_data_work, "district_projection.RData"))
-load("/data/simon/district_projection.RData")
+
+if (linux) {
+  load("/data/simon/municipality_code_reg_code_mapping.RData")
+} else {
+  load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
+}
+if (linux) {
+  load("/data/simon/district_projection.RData")
+} else {
+  load(file.path(wd_data_work, "district_projection.RData"))
+}
+if (linux) {
+  load("/data/simon/munip_size_group_mapping_2024.RData")
+} else {
+  load(file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
+}
 
 ## LINEXP prediction -----------------------------------------------------------
 #load(file.path(wd_res,"25-35_LINEXP_prediction.RData"))
@@ -475,7 +496,52 @@ load("/data/simon/district_projection.RData")
 #print("CSP-VSG finished")
 
 
+# TFT --------------------------------------------------------------------------
+if(linux){
+tft_pred <- read.csv2("/data/simon/tft_prediction_2025-2035.csv", sep = ",") %>%
+  mutate(prediction = as.numeric(prediction))
+} else {
+  tft_pred <- read.csv2(file.path(wd_res, "tft_prediction_2025-2035.csv"),
+                     sep = ",") %>%
+ mutate(prediction = as.numeric(prediction)) }
 
+tft_pred <- tft_pred %>%
+  filter(quantile == 0.5) %>%
+  mutate(prediction = case_when(prediction < 0 ~ 0,
+                                .default = as.numeric(prediction))) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  select(-quantile) %>%
+  mutate(population = NA) %>%
+  rename(tft_prediction = prediction)
+
+tft_pred_for_balancing <- prepare_prediction_for_balancing(
+  tft_pred,
+  municipality_reg_mapping,
+  municipality_size_group_mapping_2024,
+  allowed_deviation_pred,
+  district_projection,
+  prediction_years = 2025:2035
+)
+
+balanced_tft_pred <- tft_pred_for_balancing %>%
+   filter(!reg_code %in% regs_to_not_balance) %>%
+   group_by(year, reg_code) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "tft_prediction")) %>%
+   select(municipality_code, reg_code, sex, age_group, year, tft_prediction, balanced_pred)
+ 
+ 
+ balanced_tft_pred <- balanced_tft_pred %>%
+   bind_rows(tft_pred_for_balancing %>% 
+               filter(reg_code %in% regs_to_not_balance) %>%
+               select(municipality_code, reg_code, sex, age_group, year, tft_prediction, projected_population) %>%
+               rename(balanced_pred = projected_population)) 
+
+save(balanced_tft_pred, file = "2025-2035_TFT_balanced.RData")
+print("CSP-VSG finished")
 
 
 
