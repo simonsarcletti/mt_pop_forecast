@@ -32,6 +32,7 @@ if (!require("rlang")) {
 if (!require("tibble")) {
   install.packages("tibble")
 }
+
 if ( linux){
   load("/data/simon/all_municipalities_population.RData")
 } else {
@@ -164,8 +165,8 @@ balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
       summarise(!!pred_col := sum(!!pred_col),
                 .groups = 'drop') %>%
       mutate(
-        lower_bound = !!pred_col * (1 + min_percentage_change / 100),
-        upper_bound = !!pred_col * (1 + max_percentage_change / 100)
+        lower_bound = !!pred_col * (1 + min_percentage_change * 1.5 / 100),
+        upper_bound = !!pred_col * (1 + max_percentage_change * 1.5 / 100)
       ) %>%
       group_by(municipality_code) %>%
       summarise(
@@ -204,10 +205,9 @@ balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
   
   row_constraints <- get_row_constraints(data)[row_names]
   
-  print(row_constraints)
   print(sum(row_constraints))
-  print(lower_bounds)
-  print(upper_bounds)
+  print(sum(lower_bounds))
+  print(sum(upper_bounds))
 
   out_matrix <- balance_matrix(
     init_matrix,
@@ -541,7 +541,7 @@ balanced_tft_pred <- tft_pred_for_balancing %>%
                rename(balanced_pred = projected_population)) 
 
 save(balanced_tft_pred, file = "2025-2035_TFT_balanced.RData")
-print("CSP-VSG finished")
+print("TFT finished")
 
 
 
