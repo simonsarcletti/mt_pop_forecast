@@ -297,31 +297,18 @@ pop_dynamic_10y <- all_munip_pop %>%
   mutate(pop_dynamic_10y = `2024` / `2014` - 1)
 
 all <- covariates %>%
+  select(-klassifikation_palme95) %>%
   select(-Name) %>%
   rename(municipality_code = ID) %>%
   mutate(
-    klassifikation_palme95 = case_when(
-      klassifikation_palme95 == "Touristische Randgebiete" ~ 1,
-      klassifikation_palme95 == "Extensive Industrieregionen" ~ 2,
-      klassifikation_palme95 == "Umland" ~ 3,
-      klassifikation_palme95 == "Industrialisierte Randgebiete" ~ 4,
-      klassifikation_palme95 == "Mittelstädte" ~ 5,
-      klassifikation_palme95 == "Intensive Tourismusregionen" ~ 6,
-      klassifikation_palme95 == "Intensive Industrieregionen" ~ 7,
-      klassifikation_palme95 == "Großstädte" ~ 8,
-      klassifikation_palme95 == "Metropole" ~ 9,
-      TRUE ~ NA_real_ # This is a catch-all for any values not matched, assign NA
-    )
-  ) %>%
-  mutate(
-    OeV.Güteklassen = case_when(
-      OeV.Güteklassen == "B" ~ 1,
-      OeV.Güteklassen == "C" ~ 2,
-      OeV.Güteklassen == "D" ~ 3,
-      OeV.Güteklassen == "E" ~ 4,
-      OeV.Güteklassen == "F" ~ 5,
-      OeV.Güteklassen == "G" ~ 6,
-      OeV.Güteklassen == "ausser_oev_gk" ~ 7,
+    public.transport.quality = case_when(
+      public.transport.quality == "B" ~ 1,
+      public.transport.quality == "C" ~ 2,
+      public.transport.quality == "D" ~ 3,
+      public.transport.quality == "E" ~ 4,
+      public.transport.quality == "F" ~ 5,
+      public.transport.quality == "G" ~ 6,
+      public.transport.quality == "ausser_oev_gk" ~ 7,
       TRUE ~ NA_real_ # Catch-all for any values not explicitly matched
     )
   ) %>%
@@ -341,7 +328,7 @@ ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) 
                        mid = "white",
                        midpoint = 0, limit = c(-1,1), space = "Lab",
                        name="Correlation") +
-  geom_text(aes(label = round(value, 2)), color = "black", size = 1.5) +
+  geom_text(aes(label = round(value, 2)), color = "black", size = 2) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle = 45, vjust = 1, size = 8, hjust = 1), # Rotate x-axis labels
@@ -350,7 +337,9 @@ ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) 
     axis.title.y = element_blank(), # Remove y-axis title
     panel.grid.major = element_blank(), # Remove major grid lines
     panel.grid.minor = element_blank(), # Remove minor grid lines
-    plot.title = element_text(hjust = 0.5, face = "bold") # Center and bold the plot title
+    plot.title = element_text(hjust = 0.5, face = "bold"), # Center and bold the plot title
+    legend.title    = element_text(size = 8) ,
+    legend.text      = element_text(size = 6)
   ) +
   coord_fixed() #+
   #labs(title = "Correlation Covariates and Population Dynamics (2014-2024")
@@ -387,3 +376,98 @@ test <- filter(all_munip_pop, municipality_code == "10101", sex == 1, coarse_age
 
 ggplot(test, aes(x = year, y = tft_prediction))+
   geom_line()
+
+
+#####
+# graph with all test forecasts
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_res, "2022-2024_TFT_balanced.RData"))
+load(file.path(wd_res, "2022-2024_CSP_VSG_balanced.RData"))
+load(file.path(wd_res, "2022-2024_CSP_balanced.RData"))
+load(file.path(wd_res, "2022-2024_LINEXP_test_balanced.RData"))
+load(file.path(wd_res, "2022-2024_HP_test_balanced.RData"))
+load(file.path(wd_res, "2022-2024_VSG_balanced.RData"))
+
+municipality <- "62041"
+mun_name <- "Knittelfeld"  
+
+
+
+base_period <- all_munip_pop %>%
+  filter(municipality_code == "62041", sex == 1, coarse_age_group == "20 - 29", year %in% 2002:2024) %>%
+  select( year, population) %>%
+  mutate(type = "Historic values")
+
+cut_off_year_pop <- base_period %>% filter(year == 2021) %>% pull(population)
+
+tft <- balanced_tft_test %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "TFT")
+
+csp_vsg <- balanced_csp_vsg_test %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "CSP-VSG")
+
+csp <- balanced_csp_test %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "CSP")
+
+linexp <- balanced_LINEXP_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "LINEXP")
+
+hp <- balanced_hp_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "HP")
+
+vsg <- balanced_vsg_test  %>%
+  ungroup() %>%
+  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "VSG")
+
+all_series <- base_period %>%
+  bind_rows(tft, csp_vsg, csp, linexp, hp, vsg) %>%
+  bind_rows(data.frame(year = rep(2021, 6), 
+                       population = rep(cut_off_year_pop,6),
+                       type = c("TFT", "CSP-VSG", "CSP", "LINEXP", "HP", "VSG")))
+
+
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2021, linetype = "dashed") +
+  labs(
+    title = paste0(mun_name,", m, 20-29"),
+    x     = "Year",
+    y     = "Population",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue",
+    "CSP-VSG"         = "orange",
+    "CSP"             = "red",
+    "LINEXP"          = "darkgreen",
+    "HP"              = "purple",
+    "VSG"             = "brown"
+  )) +
+  theme_minimal()
+
+

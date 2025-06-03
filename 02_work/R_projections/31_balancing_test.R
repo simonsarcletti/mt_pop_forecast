@@ -12,7 +12,7 @@
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
 
-linux <- FALSE
+linux <- TRUE
 
 #source("00_init.R")
 source("30_GCE_algorithm.R")
@@ -446,13 +446,14 @@ jump_off_year <- 2021
 
 
 # TFT --------------------------------------------------------------------------
+if(linux){
 tft_test <- read.csv2("/data/simon/tft_test_2022-2024.csv", sep = ",") %>%
   mutate(prediction = as.numeric(prediction))
-
-
-#tft_test <- read.csv2(file.path(wd_res, "tft_test_2022-2024.csv"),
-#                      sep = ",") %>%
-#  mutate(prediction = as.numeric(prediction))
+} else {
+  tft_test <- read.csv2(file.path(wd_res, "tft_test_2022-2024.csv"),
+                    sep = ",") %>%
+ mutate(prediction = as.numeric(prediction))
+}
 
 tft_test <- tft_test %>%
   filter(quantile == 0.5) %>%
@@ -465,7 +466,10 @@ tft_test <- tft_test %>%
   ) %>%
   select(-quantile) %>%
   mutate(population = NA) %>%
-  rename(tft_prediction = prediction)
+  rename(tft_prediction = prediction) %>%
+  mutate(year = case_when(year == 2025 ~ 2022,
+                          year == 2026 ~ 2023,
+                          year == 2027 ~ 2024))
 
 tft_test_for_balancing <- prepare_prediction_for_balancing(
   tft_test,
