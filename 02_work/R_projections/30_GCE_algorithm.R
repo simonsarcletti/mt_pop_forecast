@@ -35,8 +35,8 @@ generate_support_vectors <- function(A, M = 5) {
   for (i in 1:T) {
     for (j in 1:K) {
       original_value <- A[i, j]
-      lower_bound    <- original_value - 0.2 * original_value
-      upper_bound    <- original_value + 0.2 * original_value
+      lower_bound    <- original_value - 0.1 * original_value
+      upper_bound    <- original_value + 0.1 * original_value
       
       # how many below vs above
       n_rand <- M - 1
@@ -278,7 +278,7 @@ balance_matrix <- function(A, u, v_lower, v_upper, support_vectors, M = 15, prio
                                "print_level" = 0,
                                "xtol_rel" = 1.0e-1,
                                #"ftol_abs" = 1.0e-6,
-                               "maxeval" = 15000))
+                               "maxeval" = 10000))
   
   if (result$status < 0) {
     stop("Optimization did not converge: ", result$message)

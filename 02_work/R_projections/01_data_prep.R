@@ -513,3 +513,86 @@ save(
   municipality_reg_mapping,
   file = file.path(wd_data_work, "municipality_code_reg_code_mapping.RData")
 )
+
+
+# Prep auf Austrian forecast for Plausbility 
+aut_forecast <- read_delim(
+  file.path(wd_data_orig, "stat_aut_forecast.csv"),
+  delim = ";",
+  skip = 6,
+  locale = locale(decimal_mark = ",", encoding = "Latin1")
+) %>%
+  select(-c(Werte, Anmerkungen)) %>%
+  slice(1:(n() - 9)) %>%
+  rename(
+    year = Jahr,
+    age = Alter,
+    population = Anzahl
+  ) %>%
+  select(- `...6`) %>%
+  mutate(coarse_age_group = case_when(
+    # 0–9 Jahre
+    age %in% c(
+      "0 Jahre", "1 Jahr", "2 Jahre", "3 Jahre", "4 Jahre",
+      "5 Jahre", "6 Jahre", "7 Jahre", "8 Jahre", "9 Jahre"
+    ) ~ "0 - 9",
+    
+    # 10–19 Jahre
+    age %in% c(
+      "10 Jahre", "11 Jahre", "12 Jahre", "13 Jahre", "14 Jahre",
+      "15 Jahre", "16 Jahre", "17 Jahre", "18 Jahre", "19 Jahre"
+    ) ~ "10 - 19",
+    
+    # 20–29 Jahre
+    age %in% c(
+      "20 Jahre", "21 Jahre", "22 Jahre", "23 Jahre", "24 Jahre",
+      "25 Jahre", "26 Jahre", "27 Jahre", "28 Jahre", "29 Jahre"
+    ) ~ "20 - 29",
+    
+    # 30–44 Jahre
+    age %in% c(
+      "30 Jahre", "31 Jahre", "32 Jahre", "33 Jahre", "34 Jahre",
+      "35 Jahre", "36 Jahre", "37 Jahre", "38 Jahre", "39 Jahre",
+      "40 Jahre", "41 Jahre", "42 Jahre", "43 Jahre", "44 Jahre"
+    ) ~ "30 - 44",
+    
+    # 45–54 Jahre
+    age %in% c(
+      "45 Jahre", "46 Jahre", "47 Jahre", "48 Jahre", "49 Jahre",
+      "50 Jahre", "51 Jahre", "52 Jahre", "53 Jahre", "54 Jahre"
+    ) ~ "45 - 54",
+    
+    # 55–64 Jahre
+    age %in% c(
+      "55 Jahre", "56 Jahre", "57 Jahre", "58 Jahre", "59 Jahre",
+      "60 Jahre", "61 Jahre", "62 Jahre", "63 Jahre", "64 Jahre"
+    ) ~ "55 - 64",
+    
+    # 65–74 Jahre
+    age %in% c(
+      "65 Jahre", "66 Jahre", "67 Jahre", "68 Jahre", "69 Jahre",
+      "70 Jahre", "71 Jahre", "72 Jahre", "73 Jahre", "74 Jahre"
+    ) ~ "65 - 74",
+    
+    # 75+ Jahre (including “100 Jahre und älter”)
+    age %in% c(
+      "75 Jahre", "76 Jahre", "77 Jahre", "78 Jahre", "79 Jahre",
+      "80 Jahre", "81 Jahre", "82 Jahre", "83 Jahre", "84 Jahre",
+      "85 Jahre", "86 Jahre", "87 Jahre", "88 Jahre", "89 Jahre",
+      "90 Jahre", "91 Jahre", "92 Jahre", "93 Jahre", "94 Jahre",
+      "95 Jahre", "96 Jahre", "97 Jahre", "98 Jahre", "99 Jahre",
+      "100 Jahre und älter"
+    ) ~ "75+",
+    
+    TRUE ~ NA_character_
+  )) %>%
+  group_by(year, coarse_age_group) %>%
+  summarise(population)
+
+save(
+  aut_forecast,
+  file = file.path(wd_data_work, "aut_forecast.RData")
+)
+
+
+

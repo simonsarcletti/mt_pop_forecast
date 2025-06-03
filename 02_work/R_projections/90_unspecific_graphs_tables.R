@@ -18,7 +18,7 @@ View(head(all_munip_pop, 100))
 
 summarized_munip_pop <- all_munip_pop %>%
   select(-reg_code) %>%
-  group_by(municipality, municipality_code, year) %>%
+  group_by(municipality_code, year) %>%
   summarise(population = sum(population, na.rm = T)) %>%
   filter(year %in% c(2014,2024))
 
@@ -50,13 +50,18 @@ quantile(average_growth_rate_df$average_growth_rate)
 
 hist(average_growth_rate_df$average_growth_rate)
 
+munip_pop_by_cohort <- all_munip_pop %>%
+  select(-reg_code, - municipality) %>%
+  group_by(municipality_code, coarse_age_group, year) %>%
+  summarise(population = sum(population, na.rm = T)) 
+
 
 summary_df <- data.frame(
   Variable = c(
     "N",
     "Median population",
     "Mean population",
-    "Standard Deviation",
+    "Standard deviation",
     "N by 2024 population",
     "0-1,000",
     "1,001-2,000",
@@ -64,12 +69,15 @@ summary_df <- data.frame(
     "5,001-10,000",
     "10,001-100,000",
     "> 100,000",
-    "N by average growth rate 2014-2024",
-    "< -1%",
-    "-1% - 0%",
-    "0% - 1%",
-    "1%-2%",
-    ">2%"
+    "Median Population per age group 2024",
+    "0 - 9",
+    "10 - 19",
+    "20 - 29",
+    "30 - 44",
+    "45 - 54",
+    "55 - 64",
+    "65 - 74",
+    "75+"
   ),
   Value = c(
     nrow(filter(summarized_munip_pop, year == 2024)),  # Total number of municipalities
@@ -84,11 +92,14 @@ summary_df <- data.frame(
     nrow(filter(summarized_munip_pop, population > 10000 & population <= 100000, year ==2024)),
     nrow(filter(summarized_munip_pop, population > 100000, year ==2024)),
     NA,
-    nrow(filter(average_growth_rate_df, average_growth_rate < -0.01)),
-    nrow(filter(average_growth_rate_df, average_growth_rate >= -0.01 & average_growth_rate < 0)),
-    nrow(filter(average_growth_rate_df, average_growth_rate >= 0 & average_growth_rate < 0.01)),
-    nrow(filter(average_growth_rate_df, average_growth_rate >= 0.01 & average_growth_rate <= 0.02)),
-    nrow(filter(average_growth_rate_df, average_growth_rate > 0.02))
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "0 - 9") %>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "10 - 19")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "20 - 29")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "30 - 44")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "45 - 54")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "55 - 64")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "65 - 74")%>% pull(population)),
+    median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "75+")%>% pull(population))
   )
 )
 
@@ -348,7 +359,31 @@ ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) 
 
 
 
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+
+ggplot(all_munip_pop %>% filter(municipality_code == "62010", sex == 1, coarse_age_group == "20 - 29"),
+       aes(x = year, y = population)) +
+  geom_line(size = 1) +
+  geom_point() +
+  theme_minimal() + 
+  labs(title = "Hohentauern, m, 20-29",
+    x     = "Year",
+    y     =  "Population")
 
 
+load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
 
+test <- filter(all_munip_pop, municipality_code == "10101", sex == 1, coarse_age_group == "0 - 9") %>%
+  select(municipality_code, sex, coarse_age_group, year, population)%>%
+  rename(age_group = coarse_age_group) %>%
+  rename(tft_prediction = population) %>%
+  mutate(sex = as.character(sex)) %>%
+  bind_rows(tft_pred %>%
+              filter(municipality_code == "10101", sex == "1.0", age_group == "0 - 9") %>%
+              ungroup() %>%
+              select(municipality_code, sex, age_group, year, tft_prediction))
+
+ggplot(test, aes(x = year, y = tft_prediction))+
+  geom_line()
