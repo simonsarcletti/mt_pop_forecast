@@ -12,7 +12,7 @@
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
 
-linux <- FALSE
+linux <- TRUE
 
 #source("00_init.R")
 source("30_GCE_algorithm.R")
