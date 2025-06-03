@@ -165,8 +165,8 @@ balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
       summarise(!!pred_col := sum(!!pred_col),
                 .groups = 'drop') %>%
       mutate(
-        lower_bound = !!pred_col * (1 + min_percentage_change * 1.5 / 100),
-        upper_bound = !!pred_col * (1 + max_percentage_change * 1.5 / 100)
+        lower_bound = !!pred_col * (1 + min_percentage_change * 2 / 100),
+        upper_bound = !!pred_col * (1 + max_percentage_change * 2 / 100)
       ) %>%
       group_by(municipality_code) %>%
       summarise(
