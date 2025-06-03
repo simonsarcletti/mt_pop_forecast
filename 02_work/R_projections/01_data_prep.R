@@ -587,7 +587,7 @@ aut_forecast <- read_delim(
     TRUE ~ NA_character_
   )) %>%
   group_by(year, coarse_age_group) %>%
-  summarise(population)
+  summarise(population = sum(population))
 
 save(
   aut_forecast,

@@ -76,31 +76,162 @@ check_trend_changes(forecast_names = c("CSP-VSG", "TFT"),
 load(file.path(wd_data_work, "aut_forecast.RData"))
 
 
+check_composition_by_age <- function(forecast_names = c("CSP-VSG", "TFT"),
+                                     past_population,
+                                     list_of_forecasts,
+                                     relevant_year){
+  
+  age_group_share <- past_population %>%
+    rename(age_group = coarse_age_group) %>%
+    group_by(year) %>%
+    mutate(total_pop = sum(population)) %>%
+    mutate(age_group_share = population / total_pop) %>%
+    select(year, age_group, age_group_share)
+  
 
-age_group_share <- aut_forecast %>%
-  rename(age_group = coarse_age_group) %>%
-  group_by(year) %>%
-  mutate(total_pop = sum(population)) %>%
-  mutate(age_group_share = population / total_pop) %>%
-  select(year, age_group, age_group_share)
+  results <- data.frame(age_group = unique(age_group_share$age_group))
 
-
-list_of_forecasts <- list(balanced_tft_pred)
-
-for(forecast in list_of_forecasts){
-  forecasts_age_group_shares <- forecast %>%
-    group_by(year, age_group) %>%
-    summarise(pop_per_age_group = sum(tft_prediction)) #%>%
-    #group_by(year) %>%
-    #mutate(total_pop = sum(pop_per_age_group))
+  for(forecast in list_of_forecasts){
+    forecasts_age_group_shares <- forecast %>%
+      group_by(year, age_group) %>%
+      summarise(pop_per_age_group = sum(balanced_pred)) %>%
+      group_by(year) %>%
+      mutate(total_pop = sum(pop_per_age_group)) %>%
+      mutate(age_group_share = pop_per_age_group / total_pop) %>%
+      select(year, age_group, age_group_share) %>%
+      left_join(age_group_share, by = join_by(year, age_group)) %>%
+      mutate(difference = round((age_group_share.x - age_group_share.y)*100, 2)) %>%
+      filter(year == relevant_year) %>%
+      ungroup() %>%
+      select(age_group, difference)
+    print(forecasts_age_group_shares)
+    results <- results %>%
+      left_join(forecasts_age_group_shares, by = "age_group")
+  }
+  names(results)[2:ncol(results)] <- forecast_names
+  
+  return(results)
 }
 
-forecasts_age_group_shares <- balanced_csp_vsg_pred %>%
-  group_by(year, reg_code) %>%
-  summarise(bal = sum(balanced_pred),
-            unbal = sum(PRED_csp_vsg)) %>%
-  group_by(year) %>%
-  summarise(sum(pop_per_age_group))
+
+check_composition_by_age(forecast_names = c("CSP-VSG"),
+                    past_population = aut_forecast,
+                    list_of_forecasts = list(balanced_csp_vsg_pred),
+                    relevant_year = 2035)
+
+
+# extreme growth/decline
+check_extreme_change <- function(forecast_names,
+                                past_population,
+                                list_of_forecasts,
+                                grouping_df){
+  past_trends <- past_population %>% 
+    filter(year %in% c(2014, 2024)) %>%
+    group_by(municipality_code, year) %>%
+    summarise(population = sum(population)) %>%
+    pivot_wider(names_from = year, values_from = population) %>%
+    mutate(past_trend = abs((`2024`-`2014`)/`2014`)) %>% 
+    left_join(grouping_df %>% select(municipality_code, simplified_urban_rural)) %>%
+    select(municipality_code, past_trend, simplified_urban_rural) %>%
+    group_by(simplified_urban_rural) %>%
+    summarise(max_change = max(past_trend))
+    
+  
+  max_change1 <- past_trends %>% filter(simplified_urban_rural ==1) %>% pull(max_change)
+  max_change2 <- past_trends %>% filter(simplified_urban_rural ==2) %>% pull(max_change)
+  max_change3 <- past_trends %>% filter(simplified_urban_rural ==3) %>% pull(max_change)
+  max_change4 <- past_trends %>% filter(simplified_urban_rural ==4) %>% pull(max_change)
+  
+  
+  list_future_trends <- list()
+  result_df <- data.frame(simplified_urban_rural = unique(past_trends$simplified_urban_rural)) 
+  
+  for (i in seq_along(list_of_forecasts)) {
+    forecast_df <- list_of_forecasts[[i]]
+    f_name     <- forecast_names[i]
+    
+    future_trends <- forecast_df %>%
+      filter(year %in% c(2025, 2034)) %>%
+      group_by(municipality_code, year) %>%
+      summarise(population = sum(balanced_pred), .groups = "drop") %>%
+      pivot_wider(names_from = year, values_from = population) %>%
+      mutate(
+        future_trend = abs((`2034` - `2025`) / `2025`)
+      ) %>%
+      select(municipality_code, future_trend) %>%
+      left_join(
+        grouping_df %>% select(municipality_code, simplified_urban_rural),
+        by = "municipality_code"
+      )
+    
+    # Now, count how many “future_trend” exceed the historical max_change for each category
+    extreme_count <- c(
+      future_trends %>% filter(simplified_urban_rural == 1, future_trend > max_change1) %>% nrow(),
+      future_trends %>% filter(simplified_urban_rural == 2, future_trend > max_change2) %>% nrow(),
+      future_trends %>% filter(simplified_urban_rural == 3, future_trend > max_change3) %>% nrow(),
+      future_trends %>% filter(simplified_urban_rural == 4, future_trend > max_change4) %>% nrow()
+    )
+    
+    # Attach that vector as a new column named after f_name:
+    result_df[[ f_name ]] <- extreme_count
+  }
+  
+  return(result_df)
+}
+
+
+check_extreme_change(forecast_names = c("CSP-VSG"),
+                    past_population = all_munip_pop,
+                    list_of_forecasts = list(balanced_csp_vsg_pred),
+                    grouping_df = static_vars) 
+
+
+# deviation from expected cohort count -----------------------------------------
+# 10 years later, the entire cohort should have moved on: 2034, all in 0 - 9 in 2024 should be 10-19
+check_deviation_from_moved_on <- function(forecast_names,
+                                          past_population,
+                                          list_of_forecasts){
+  
+  expected_pop <- past_population %>%
+    filter(year == 2024) %>%
+    group_by(coarse_age_group) %>%
+    reframe(population = sum(population)) %>%
+    filter(!coarse_age_group %in% c("30 - 44", "75+")) %>%
+    mutate(age_group_ten_years = c("10 - 19", "20 - 29", NA, "55 - 64", "65 - 74", "75+")) %>%
+    rename(age_group = coarse_age_group) %>%
+    filter(!is.na(age_group_ten_years)) %>%
+    select(-age_group)
+  
+  
+  result_df <- data.frame(age_group = unique(expected_pop$age_group_ten_years))
+
+  
+  for (i in seq_along(list_of_forecasts)) {
+    forecast_df <- list_of_forecasts[[i]]
+    f_name     <- forecast_names[i]
+    
+    future_pop <- forecast_df %>%
+      filter(year == 2034) %>%
+      group_by(year, age_group) %>%
+      summarise(population = sum(balanced_pred), .groups = "drop") %>%
+      left_join(expected_pop, by = join_by(age_group == age_group_ten_years)) %>%
+      select(-year) %>%
+      filter(!is.na(population.y)) %>%
+      mutate(percentage_deviation = (population.x - population.y)/population.y)
+    
+    result_df <- result_df %>%
+      left_join(future_pop %>% select(age_group, percentage_deviation))
+  }
+  
+  names(results)[2:ncol(results)] <- forecast_names
+  return(result_df)
+  
+}
+
+
+check_deviation_from_moved_on(forecast_names = c("CSP-VSG"),
+                              past_population = all_munip_pop,
+                              list_of_forecasts = list(balanced_csp_vsg_pred))
 
 
 
