@@ -515,6 +515,7 @@ save(
 )
 
 
+# aut forecast for plausibility
 # Prep auf Austrian forecast for Plausbility 
 aut_forecast <- read_delim(
   file.path(wd_data_orig, "stat_aut_forecast.csv"),
@@ -595,4 +596,75 @@ save(
 )
 
 
+# aut forecast for transformer refinement --------------------------------------
+aut_forecast <- read_delim(
+  file.path(wd_data_orig, "stat_aut_forecast_bl_sex_age_group.csv"),
+  delim = ";",
+  skip = 6,
+  locale = locale(decimal_mark = ",", encoding = "Latin1")
+) %>%
+  select(-c(Werte, Anmerkungen, `...8`)) %>%
+  slice(1:(n() - 9)) %>%
+  rename(
+    year = Jahr,
+    age_group = "Alter in 5-Jahresgruppen",
+    bundesland = Bundesland,
+    sex = Geschlecht,
+    population = Anzahl
+  ) %>%
+  filter(bundesland != "Nicht klassifizierbar <0>") %>%
+  mutate(
+    age_group = case_when(
+      age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "0 - 9",
+      age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 - 19",
+      age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 - 29",
+      age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 - 44",
+      age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 - 54",
+      age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 - 64",
+      age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 - 74",
+      age_group %in% c("75 bis 79 Jahre", "80 bis 84 Jahre", "85 bis 89 Jahre", "90 bis 94 Jahre", "95 Jahre und älter") ~ "75+"
+    )
+  ) %>%
+  mutate(sex = case_when(sex == "männlich" ~ 1, sex == "weiblich" ~ 2)) %>%
+  mutate(bundesland = case_when(
+    bundesland == "Burgenland <AT11>" ~ 1,
+    bundesland == "Kärnten <AT21>" ~ 2,
+    bundesland == "Niederösterreich <AT12>" ~ 3,
+    bundesland == "Oberösterreich <AT31>" ~ 4,
+    bundesland == "Salzburg <AT32>" ~ 5,
+    bundesland == "Steiermark <AT22>" ~ 6, 
+    bundesland == "Tirol <AT33>" ~ 7,
+    bundesland == "Vorarlberg <AT34>" ~ 8,
+    bundesland == "Wien <AT13>" ~ 9
+  )) %>%
+  mutate(population = as.numeric(population)) %>%
+  group_by(bundesland, sex, year, age_group) %>%
+  summarise(
+    population = sum(population)
+  ) 
 
+
+
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+
+aux <- all_munip_pop %>%
+  mutate(bundesland = as.numeric(substr(municipality_code, 1, 1))) %>%
+  group_by(bundesland, year, sex, coarse_age_group) %>%
+  summarise(            smoothed_population = sum(smoothed_population))
+
+
+aut_forecast <- aut_forecast %>%
+  left_join(aux, by = join_by(bundesland, year, sex, age_group == coarse_age_group)) %>%
+  mutate(pop_for_tft = case_when(year <= 2024 ~ smoothed_population,
+                                 year > 2024 ~ population))%>%
+  group_by(bundesland, year) %>%
+  mutate(smoothed_pop_per_bl = sum(pop_for_tft)) %>%
+  ungroup() %>%
+  group_by(age_group, sex, year) %>%
+  mutate(smoothed_pop_per_age_group_sex = sum(pop_for_tft))
+
+
+save(
+  aut_forecast,
+  file = file.path(wd_data_work, "aut_forecast_bl_sex_age_group.RData")
+)

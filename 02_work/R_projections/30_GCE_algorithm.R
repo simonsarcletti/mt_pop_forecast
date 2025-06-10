@@ -90,7 +90,7 @@ initialize_probabilities <- function(T, K, M, prior = 'uniform') {
   } else if (prior == 'uniform') {
     return(array(1 / M, dim = c(T, K, M)))
   } else if (prior == 'spike') {
-    spike_prob <- 0.95
+    spike_prob <- 0.60
     non_spike_prob <- (1 - spike_prob) / (M - 1)
     # Create an array filled with the non-spike probability.
     probs <- array(non_spike_prob, dim = c(T, K, M))

@@ -37,6 +37,26 @@ ggplot(filter(summarized_munip_pop, year == 2024), aes(x = population)) +
   labs(title = "", x = "Population", y = "Count (log-scale)") +
   theme_minimal()
 
+summarized_munip_pop_age_group <- all_munip_pop %>%
+  select(-reg_code) %>%
+  group_by(municipality_code, year, coarse_age_group) %>%
+  summarise(population = sum(population, na.rm = T)) %>%
+  filter(year %in% c(2014, 2024)) %>%
+  pivot_wider(names_from = year, values_from = population) %>%
+  mutate(change = (`2024`-`2014`)/`2024`)
+
+
+ggplot(summarized_munip_pop_age_group, aes(x = coarse_age_group, y = change)) +
+  geom_boxplot(fill = "cornflowerblue", colour = "black") +
+  scale_y_continuous(limits = c(-2.5, 1)) +
+  labs(
+    x = "Age Group",
+    y = "Relative Change (2014 → 2024)",
+    title = NULL
+  ) +
+  theme_minimal()
+         
+
 
 average_growth_rate_df <- summarized_munip_pop %>%
   pivot_wider(id_cols = municipality_code,
@@ -317,8 +337,93 @@ all <- covariates %>%
 
 cor_matrix <- cor(all[2:ncol(all)], use = "pairwise.complete.obs")
 
+variable_order <- c(
+  "Urban–Rural Typology",
+  "District Capital",
+  # Education
+  "Large School",
+  "Neighboring Large School",
+  # Built environment
+  "Commercial Buildings per Capita",
+  "Cultural Buildings per Capita",
+  # Income
+  "Gross Income (2023)",
+  
+  # Transport-related
+  "Freeway Access",
+  "Neighboring Freeway Access",
+  "Public Transport Quality",
+  "High-Ranked Public Transport Stop",
+  "Neighboring High-Ranked Stop",
+  # Activity/Traffic
+  "Passenger Kilometres (2019)",
+  "Commuter Balance (2022)",
+  "Neighboring Work Municipality",
+  
+  # Demographics
+  "Average Age (2024)",
+  "Share 75+ (2014)",
+  "Share 75+ (2024)",
+  "Share of Women aged 15–34 (2024)",
+  # Population dynamics
+  "10-year Population change (2014-2024)"
+)
+
+
 melted_correlation_matrix <- melt(cor_matrix) %>%
-  filter(Var2 == "pop_dynamic_10y", Var1 != "pop_dynamic_10y")
+  #filter(Var2 == "pop_dynamic_10y", Var1 != "pop_dynamic_10y") %>%
+  mutate(Var1 = case_when(
+    Var1 == "urban.rural.typologie"                              ~ "Urban–Rural Typology",
+    Var1 == "public.transport.quality"                           ~ "Public Transport Quality",
+    Var1 == "distrcit.capital"                                   ~ "District Capital",
+    Var1 == "large.school"                                       ~ "Large School",
+    Var1 == "large.school.neigbor"                               ~ "Neighboring Large School",
+    Var1 == "high.ranked.public.transport.stop"                  ~ "High-Ranked Public Transport Stop",
+    Var1 == "high.ranked.public.transport.stop.neighor"          ~ "Neighboring High-Ranked Stop",
+    Var1 == "freeway.access"                                     ~ "Freeway Access",
+    Var1 == "freeway.access.neighbor"                            ~ "Neighboring Freeway Access",
+    Var1 == "commuter.index.2022"                                ~ "Commuter Balance (2022)",
+    Var1 == "work.municipality.neigbor"                          ~ "Neighboring Work Municipality",
+    Var1 == "share.75..2014"                                     ~ "Share 75+ (2014)",
+    Var1 == "share.75..2024"                                     ~ "Share 75+ (2024)",
+    Var1 == "average.age"                                        ~ "Average Age (2024)",
+    Var1 == "gross.income.2023"                                  ~ "Gross Income (2023)",
+    Var1 == "share.of.woman..15.34."                             ~ "Share of Women aged 15–34 (2024)",
+    Var1 == "traffic..km."                                       ~ "Passenger Kilometres (2019)",
+    Var1 == "commercial.buildings.p.c."                          ~ "Commercial Buildings per Capita",
+    Var1 == "cultural.buildings.p.c."                            ~ "Cultural Buildings per Capita",
+    Var1 == "pop_dynamic_10y" ~ "10-year Population change (2014-2024)",
+    TRUE                                                         ~ Var1
+  )) %>%
+  mutate(Var2 = case_when(
+    Var2 == "urban.rural.typologie"                              ~ "Urban–Rural Typology",
+    Var2 == "public.transport.quality"                           ~ "Public Transport Quality",
+    Var2 == "distrcit.capital"                                   ~ "District Capital",
+    Var2 == "large.school"                                       ~ "Large School",
+    Var2 == "large.school.neigbor"                               ~ "Neighboring Large School",
+    Var2 == "high.ranked.public.transport.stop"                  ~ "High-Ranked Public Transport Stop",
+    Var2 == "high.ranked.public.transport.stop.neighor"          ~ "Neighboring High-Ranked Stop",
+    Var2 == "freeway.access"                                     ~ "Freeway Access",
+    Var2 == "freeway.access.neighbor"                            ~ "Neighboring Freeway Access",
+    Var2 == "commuter.index.2022"                                ~ "Commuter Balance (2022)",
+    Var2 == "work.municipality.neigbor"                          ~ "Neighboring Work Municipality",
+    Var2 == "share.75..2014"                                     ~ "Share 75+ (2014)",
+    Var2 == "share.75..2024"                                     ~ "Share 75+ (2024)",
+    Var2 == "average.age"                                        ~ "Average Age (2024)",
+    Var2 == "gross.income.2023"                                  ~ "Gross Income (2023)",
+    Var2 == "share.of.woman..15.34."                             ~ "Share of Women aged 15–34 (2024)",
+    Var2 == "traffic..km."                                       ~ "Passenger Kilometres (2019)",
+    Var2 == "commercial.buildings.p.c."                          ~ "Commercial Buildings per Capita",
+    Var2 == "cultural.buildings.p.c."                            ~ "Cultural Buildings per Capita",
+    Var2 == "pop_dynamic_10y" ~ "10-year Population change (2014-2024)",
+    TRUE                                                         ~ Var2
+  ))  %>% mutate(
+    Var1 = factor(Var1, levels = variable_order),
+    Var2 = factor(Var2, levels = variable_order)
+  ) %>%
+  # Finally, you can arrange if you want the rows sorted by Var1, then Var2:
+  arrange(Var1, Var2)
+
 
 
 ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) +
@@ -394,7 +499,10 @@ mun_name <- "Knittelfeld"
 
 
 base_period <- all_munip_pop %>%
-  filter(municipality_code == "62041", sex == 1, coarse_age_group == "20 - 29", year %in% 2002:2024) %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(population = sum(population)) %>%
   select( year, population) %>%
   mutate(type = "Historic values")
 
@@ -402,42 +510,53 @@ cut_off_year_pop <- base_period %>% filter(year == 2021) %>% pull(population)
 
 tft <- balanced_tft_test %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
-  rename(population = balanced_pred) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(population = sum(balanced_pred)) %>%
   select( year, population) %>%
   mutate(type = "TFT")
 
 csp_vsg <- balanced_csp_vsg_test %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
   select( year, population) %>%
   mutate(type = "CSP-VSG")
 
 csp <- balanced_csp_test %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
   select( year, population) %>%
   mutate(type = "CSP")
 
 linexp <- balanced_LINEXP_pred %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
   select( year, population) %>%
   mutate(type = "LINEXP")
 
 hp <- balanced_hp_pred %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
   select( year, population) %>%
   mutate(type = "HP")
 
 vsg <- balanced_vsg_test  %>%
   ungroup() %>%
-  filter(municipality_code == "62041", sex == 1, age_group == "20 - 29", year %in% 2022:2024) %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
   select( year, population) %>%
   mutate(type = "VSG")
@@ -454,7 +573,7 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
   geom_point() +
   geom_vline(xintercept = 2021, linetype = "dashed") +
   labs(
-    title = paste0(mun_name,", m, 20-29"),
+    title = paste0("Knittelfeld"),
     x     = "Year",
     y     = "Population",
     color = NULL
@@ -469,5 +588,106 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
     "VSG"             = "brown"
   )) +
   theme_minimal()
+
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
+load(file.path(wd_res, "2025-2035_CSP-VSG_balanced.RData"))
+load(file.path(wd_res, "2025-2035_CSP_balanced.RData"))
+load(file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
+load(file.path(wd_res, "2025-2035_HP_balanced.RData"))
+load(file.path(wd_res, "2025-2035_VSG_balanced.RData"))
+
+base_period <- all_munip_pop %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(population = sum(population)) %>%
+  select( year, population) %>%
+  mutate(type = "Historic values")
+
+cut_off_year_pop <- base_period %>% filter(year == 2024) %>% pull(population)
+
+tft <- balanced_tft_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "TFT")
+
+csp_vsg <- balanced_csp_vsg_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "CSP-VSG")
+
+csp <- balanced_csp_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "CSP")
+
+linexp <- balanced_LINEXP_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "LINEXP")
+
+hp <- balanced_hp_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "HP")
+
+vsg <- balanced_vsg_pred  %>%
+  ungroup() %>%
+  filter(municipality_code == "62014") %>%
+  group_by(year) %>%
+  summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "VSG")
+
+all_series <- base_period %>%
+  bind_rows(tft, csp_vsg, csp, linexp, hp, vsg) %>%
+  bind_rows(data.frame(year = rep(2024, 6), 
+                       population = rep(cut_off_year_pop,6),
+                       type = c("TFT", "CSP-VSG", "CSP", "LINEXP", "HP", "VSG")))
+
+
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2024, linetype = "dashed") +
+  labs(
+    title = paste0("Kobenz"),
+    x     = "Year",
+    y     = "Population",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue",
+    "CSP-VSG"         = "orange",
+    "CSP"             = "red",
+    "LINEXP"          = "darkgreen",
+    "HP"              = "purple",
+    "VSG"             = "brown"
+  )) +
+  theme_minimal()
+
 
 
