@@ -137,7 +137,7 @@ rm(all_munip_pop)
 #' and computes row and column constraints. The `balance_matrix()` function is then used to
 #' perform the balancing using GCE. The final balanced predictions are merged back into the
 #' original dataset in long format.
-balance_prediction <- function(data, M = 3, prior = "spike", pred_col_name) {
+balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
   pred_col <-  ensym(pred_col_name)
   
   init_matrix <- data %>%
