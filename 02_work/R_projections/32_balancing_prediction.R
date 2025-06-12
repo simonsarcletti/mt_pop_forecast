@@ -230,7 +230,7 @@ balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
       values_to = "balanced_pred"
     )
   
-  data <-  data %>%
+  data <- select(data, -reg_code, -year) %>%
     left_join(out_matrix_long, by = join_by(municipality_code, sex_age_cohort))
   return(data)
 }
