@@ -272,8 +272,8 @@ trainer.fit(
 study = optimize_hyperparameters(
     train_dataloader,
     val_dataloader,
-    model_path="/home/v18y97/mt_pop_forecast/tft_v2",
-    n_trials=200,
+    model_path="/data/simon/checkpoints_tft_v2",
+    n_trials=150,
     max_epochs=50,
     gradient_clip_val_range=(0.01, 1.0),
     hidden_size_range=(8, 128),
@@ -301,3 +301,4 @@ best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
 print(f"Best model path: {best_model_path}")
 
 
+# best model: lightning_logs/lightning_logs/version_1/checkpoints/epoch=49-step=2500.ckpt
