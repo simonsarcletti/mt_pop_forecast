@@ -496,6 +496,7 @@ if(linux){
  print("CSP-VSG finished")
 
 
+
 # TFT --------------------------------------------------------------------------
 if(linux){
 tft_pred <- read.csv2("/data/simon/tft_prediction_2025-2035.csv", sep = ",") %>%
@@ -543,5 +544,52 @@ balanced_tft_pred <- tft_pred_for_balancing %>%
 save(balanced_tft_pred, file = "2025-2035_TFT_balanced_2.RData")
 print("TFT finished")
 
+
+# TFT with dynamics --------------------------------------------------------------------------
+if(linux){
+  tft_pred <- read.csv2("/data/simon/tft_prediction_with_dynamics_2025-2035.csv", sep = ",") %>%
+    mutate(prediction = as.numeric(prediction))
+} else {
+  tft_pred <- read.csv2(file.path(wd_res, "tft_prediction_with_dynamics_2025-2035.csv"),
+                        sep = ",") %>%
+    mutate(prediction = as.numeric(prediction)) }
+
+tft_pred <- tft_pred %>%
+  filter(quantile == 0.5) %>%
+  mutate(prediction = case_when(prediction < 0 ~ 0,
+                                .default = as.numeric(prediction))) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  select(-quantile) %>%
+  mutate(population = NA) %>%
+  rename(tft_prediction = prediction)
+
+tft_pred_for_balancing <- prepare_prediction_for_balancing(
+  tft_pred,
+  municipality_reg_mapping,
+  municipality_size_group_mapping_2024,
+  allowed_deviation_pred,
+  district_projection,
+  prediction_years = 2025:2035
+)
+
+balanced_tft_pred <- tft_pred_for_balancing %>%
+  filter(!reg_code %in% regs_to_not_balance) %>%
+  group_by(year, reg_code) %>%
+  group_modify(~ balance_prediction(.x, pred_col_name = "tft_prediction"), .keep = TRUE) %>%
+  select(municipality_code, reg_code, sex, age_group, year, tft_prediction, balanced_pred)
+
+
+balanced_tft_pred <- balanced_tft_pred %>%
+  bind_rows(tft_pred_for_balancing %>% 
+              filter(reg_code %in% regs_to_not_balance) %>%
+              select(municipality_code, reg_code, sex, age_group, year, tft_prediction, projected_population) %>%
+              rename(balanced_pred = projected_population)) 
+
+save(balanced_tft_pred, file = "2025-2035_TFT_balanced_with_dynamics.RData")
+print("TFT with dynamics finished")
 
 
