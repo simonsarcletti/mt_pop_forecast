@@ -165,5 +165,9 @@ load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
 balanced_tft_pred %>% filter(quantile == 0.5) %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
   export_wide_result(., "tft_prediction", "balanced_pred", output_name = "2025-2035_TFT_balanced.csv", wd_res = wd_res)
 
+load(file.path(wd_res, "2025-2035_TFT_balanced_uniform.RData")) 
+balanced_tft_pred %>% filter(quantile == 0.5) %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
+  export_wide_result(., "tft_prediction", "balanced_pred", output_name = "2025-2035_TFT_balanced.csv", wd_res = wd_res)
+
 
 

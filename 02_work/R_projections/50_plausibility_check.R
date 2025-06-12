@@ -34,7 +34,7 @@ static_vars <- static_vars %>%
 
 # trend changes in urban/rural muns --------------------------------------------
 
-check_trend_changes <- function(forecast_names,
+check_extreme_trend_changes <- function(forecast_names,
                                 past_population,
                                 list_of_forecasts,
                                 grouping_df) {
@@ -45,9 +45,15 @@ check_trend_changes <- function(forecast_names,
     pivot_wider(names_from = year, values_from = population) %>%
     mutate(past_trend = `2024` - `2014`) %>%
     left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
-    select(municipality_code, past_trend, population_size_group)
+    select(municipality_code, past_trend, population_size_group) %>%
+    group_by(population_size_group) %>%
+    mutate(max_change = quantile(past_trend, 0.85),
+           min_change = quantile(past_trend, 0.15)) %>%
+    mutate(extreme_neg_trend = case_when(past_trend < 0 & (past_trend < min_change) ~ 1,
+                                         .default = 0)) %>%
+    mutate(extreme_pos_trend = case_when(past_trend > 0 & (past_trend > max_change) ~ 1,
+                                         .default = 0))
   
-  #list_of_forecasts <- list(balanced_csp_vsg_pred, balanced_tft_pred)
   
   list_future_trends <- list()
   result_df <- data.frame(population_size_group = unique(past_trends$population_size_group))
@@ -59,14 +65,26 @@ check_trend_changes <- function(forecast_names,
       summarise(population = sum(balanced_pred)) %>%
       pivot_wider(names_from = year, values_from = population) %>%
       mutate(future_trend = `2034` - `2025`) %>%
-      select(municipality_code, future_trend) %>%
-      left_join(past_trends, by = join_by(municipality_code)) %>%
-      mutate(trend_change = case_when(
-        sign(past_trend) != sign(future_trend) ~ 1,
-        sign(past_trend) == sign(future_trend) ~ 0
+      left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
+      select(municipality_code, future_trend, population_size_group) %>%
+      group_by(population_size_group) %>%
+      mutate(max_change = quantile(future_trend, 0.85),
+             min_change = quantile(future_trend, 0.15)) %>%
+      mutate(extreme_neg_future_trend = case_when(future_trend < 0 & (future_trend < min_change*0.3) ~ 1,
+                                                  .default = 0)) %>%
+      mutate(extreme_pos_future_trend = case_when(future_trend > 0 & (future_trend > max_change*0.3) ~ 1,
+                                                  .default = 0)) %>%
+      ungroup() %>%
+      select(municipality_code, population_size_group, extreme_neg_future_trend, extreme_pos_future_trend) %>%
+      left_join(select(ungroup(past_trends), municipality_code, extreme_neg_trend, extreme_pos_trend),
+                by = join_by(municipality_code)) %>%
+      mutate(extreme_trend_change = case_when(
+        extreme_neg_trend == 1 & extreme_pos_future_trend == 1 ~ 1,
+        extreme_pos_trend == 1 & extreme_neg_future_trend == 1 ~ 1,
+        .default = 0
       )) %>%
       group_by(population_size_group) %>%
-      summarise(trend_change_share = sum(trend_change) / n())
+      summarise(extreme_trend_change = sum(extreme_trend_change) / n()*100)
     
     result_df <- result_df %>%
       left_join(future_trends, by = "population_size_group")
@@ -75,6 +93,23 @@ check_trend_changes <- function(forecast_names,
   
   return(result_df)
 }
+
+
+
+trend_change_df <- check_extreme_trend_changes(
+  forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
+  past_population = all_munip_pop,
+  list_of_forecasts = list(
+    balanced_csp_vsg_pred,
+    balanced_tft_pred,
+    balanced_hp_pred,
+    balanced_LINEXP_pred,
+    balanced_vsg_pred,
+    balanced_csp_pred
+  ),
+  grouping_df = municipality_size_group_mapping_2024
+) 
+
 
 trend_change_df <- check_trend_changes(
   forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),

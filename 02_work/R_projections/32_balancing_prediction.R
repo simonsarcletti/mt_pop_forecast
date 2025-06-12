@@ -12,7 +12,7 @@
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
 
-linux <- TRUE
+linux <- FALSE
 
 #source("00_init.R")
 source("30_GCE_algorithm.R")
@@ -150,8 +150,9 @@ balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
     as.matrix()
   
   print(colnames(init_matrix)[1])
-  
-  support_vectors <- generate_support_vectors(init_matrix, M = M)
+  print(data$year[1])
+
+  support_vectors <- generate_support_vectors(init_matrix, M = M, years_passed = data$year[1] - 2024)
   
   
   row_names <- rownames(init_matrix)
@@ -204,9 +205,9 @@ balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
   }
   
   row_constraints <- get_row_constraints(data)[row_names]
-  
-  print(sum(row_constraints))
+ 
   print(sum(lower_bounds))
+  print(sum(row_constraints))
   print(sum(upper_bounds))
 
   out_matrix <- balance_matrix(
@@ -304,196 +305,195 @@ if (linux) {
 #}
 
 ## LINEXP prediction -----------------------------------------------------------
-#load(file.path(wd_res,"25-35_LINEXP_prediction.RData"))
-#load("/data/simon/25-35_LINEXP_prediction.RData")
+if(linux){load("/data/simon/25-35_LINEXP_prediction.RData")} else {load(file.path(wd_res,"25-35_LINEXP_prediction.RData"))}
 
-# # data on which the function is applied
-# LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(
-#   tuned_LINEXP_pred_export,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_tuned_LINEXP"))  %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_tuned_LINEXP, balanced_pred)
-# 
-# 
-# balanced_LINEXP_pred <- balanced_LINEXP_pred %>%
-#   bind_rows(LINEXP_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_tuned_LINEXP, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-# 
-# 
-# 
-# save(balanced_LINEXP_pred, file = "2025-2035_LINEXP_balanced.RData")
-# print("LINEXP finished")
+ LINEXP_pred_for_balancing <- prepare_prediction_for_balancing(
+   tuned_LINEXP_pred_export,
+   municipality_reg_mapping,
+   municipality_size_group_mapping_2024,
+   allowed_deviation_pred,
+   district_projection,
+   prediction_years = 2025:2035
+ )
+ 
+ balanced_LINEXP_pred <- LINEXP_pred_for_balancing %>%
+   filter(!reg_code %in% regs_to_not_balance) %>%
+   group_by(year, reg_code) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_tuned_LINEXP"), .keep = TRUE)  %>%
+   select(municipality_code, reg_code, sex, age_group, year, PRED_tuned_LINEXP, balanced_pred)
+ 
+ 
+ balanced_LINEXP_pred <- balanced_LINEXP_pred %>%
+   bind_rows(LINEXP_pred_for_balancing %>% 
+               filter(reg_code %in% regs_to_not_balance) %>%
+               select(municipality_code, reg_code, sex, age_group, year, PRED_tuned_LINEXP, projected_population) %>%
+               rename(balanced_pred = projected_population)) 
+ 
+ 
+ 
+ save(balanced_LINEXP_pred, file = "2025-2035_LINEXP_balanced_2.RData")
+ print("LINEXP finished")
+
+
 # ## hamilton-perry --------------------------------------------------------------
-# #load(file.path(wd_res, "25-35_HP_prediction.RData"))
-# load("/data/simon/25-35_HP_prediction.RData")
-# 
-# hp_pred_for_balancing <- prepare_prediction_for_balancing(
-#   hp_pred_export,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_hp_pred <- hp_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry")) %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, balanced_pred)
-# 
-# 
-# balanced_hp_pred <- balanced_hp_pred %>%
-#   bind_rows(hp_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-# 
-# 
-# #save(balanced_hp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
-# save(balanced_hp_pred, file = "2025-2035_HP_balanced.RData")
-# print("HP finished")
+if(linux){load("/data/simon/25-35_HP_prediction.RData")} else { load(file.path(wd_res, "25-35_HP_prediction.RData"))}
+ 
+ hp_pred_for_balancing <- prepare_prediction_for_balancing(
+   hp_pred_export,
+   municipality_reg_mapping,
+   municipality_size_group_mapping_2024,
+   allowed_deviation_pred,
+   district_projection,
+   prediction_years = 2025:2035
+ )
+ 
+ balanced_hp_pred <- hp_pred_for_balancing %>%
+   filter(!reg_code %in% regs_to_not_balance) %>%
+   group_by(year, reg_code) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"), .keep = TRUE) %>%
+   select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, balanced_pred)
+ 
+ 
+ balanced_hp_pred <- balanced_hp_pred %>%
+   bind_rows(hp_pred_for_balancing %>% 
+               filter(reg_code %in% regs_to_not_balance) %>%
+               select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, projected_population) %>%
+               rename(balanced_pred = projected_population)) 
+ 
+ 
+# save(balanced_hp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+ save(balanced_hp_pred, file = "2025-2035_HP_balanced_2.RData")
+ print("HP finished")
 
 
 # Constant Share of population -------------------------------------------------
-#load(file.path(wd_res, "25-35_CSP_prediction.RData"))
-# load("/data/simon/25-35_CSP_prediction.RData")
-# 
-# csp_pred_for_balancing <- prepare_prediction_for_balancing(
-#   csp_pred_export,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_csp_pred <- csp_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final")) %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, balanced_pred)
-# 
-# 
-# balanced_csp_pred <- balanced_csp_pred %>%
-#   bind_rows(csp_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-# 
-# 
-# #save(balanced_csp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
-# save(balanced_csp_pred, file = "2025-2035_CSP_balanced.RData")
-# print("CSP finished")
+ if(linux){load("/data/simon/25-35_CSP_prediction.RData")} else {load(file.path(wd_res, "25-35_CSP_prediction.RData"))}
+ 
+ csp_pred_for_balancing <- prepare_prediction_for_balancing(
+   csp_pred_export,
+   municipality_reg_mapping,
+   municipality_size_group_mapping_2024,
+   allowed_deviation_pred,
+   district_projection,
+   prediction_years = 2025:2035
+ )
+ 
+ balanced_csp_pred <- csp_pred_for_balancing %>%
+   filter(!reg_code %in% regs_to_not_balance) %>%
+   group_by(year, reg_code) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_final"), .keep = TRUE) %>%
+   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, balanced_pred)
+ 
+ 
+ balanced_csp_pred <- balanced_csp_pred %>%
+   bind_rows(csp_pred_for_balancing %>% 
+               filter(reg_code %in% regs_to_not_balance) %>%
+               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_final, projected_population) %>%
+               rename(balanced_pred = projected_population)) 
+ 
+ 
+ #save(balanced_csp_pred, file = file.path(wd_res, "2025-2035_HP_balanced.RData"))
+ save(balanced_csp_pred, file = "2025-2035_CSP_balanced_2.RData")
+ print("CSP finished")
 
 
 
 
 # Constant share of growth -----------------------------------------------------
-# #load(file.path(wd_res, "25-35_CSG_prediction.RData"))
-# load("/data/simon/25-35_CSG_prediction.RData")
-# 
-# csg_pred_for_balancing <- prepare_prediction_for_balancing(
-#   csg_pred_export,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_csg_pred <- csg_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csg_final")) %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, balanced_pred)
-# 
-# 
-# balanced_csg_pred <- balanced_csg_pred %>%
-#   bind_rows(csg_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-# 
-# 
-# 
-# 
-# save(balanced_csg_pred, file = "2025-2035_CSG_balanced.RData")
-# print("CSG finished")
+# if(linux){load("/data/simon/25-35_CSG_prediction.RData")} else {load(file.path(wd_res, "25-35_CSG_prediction.RData"))}
+#  
+#  csg_pred_for_balancing <- prepare_prediction_for_balancing(
+#    csg_pred_export,
+#    municipality_reg_mapping,
+#    municipality_size_group_mapping_2024,
+#    allowed_deviation_pred,
+#    district_projection,
+#    prediction_years = 2025:2035
+#  )
+#  
+#  balanced_csg_pred <- csg_pred_for_balancing %>%
+#    filter(!reg_code %in% regs_to_not_balance) %>%
+#    group_by(year, reg_code) %>%
+#    group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csg_final"), .keep = TRUE) %>%
+#    select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, balanced_pred)
+#  
+#  
+#  balanced_csg_pred <- balanced_csg_pred %>%
+#    bind_rows(csg_pred_for_balancing %>% 
+#                filter(reg_code %in% regs_to_not_balance) %>%
+#                select(municipality_code, reg_code, sex, age_group, year, PRED_csg_final, projected_population) %>%
+#                rename(balanced_pred = projected_population)) 
+#  
+#  
+#  
+#  
+#  save(balanced_csg_pred, file = "2025-2035_CSG_balanced.RData")
+#  print("CSG finished")
 # 
 # 
 # # Variable share of growth -----------------------------------------------------
-# #load(file.path(wd_res, "25-35_VSG_prediction.RData"))
-# load("/data/simon/25-35_VSG_prediction.RData")
-# 
-# vsg_pred_for_balancing <- prepare_prediction_for_balancing(
-#   vsg_pred_for_export,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_vsg_pred <- vsg_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_vsg")) %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, balanced_pred)
-# 
-# 
-# balanced_vsg_pred <- balanced_vsg_pred %>%
-#   bind_rows(vsg_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-# 
-# 
-# 
-# 
-# save(balanced_vsg_pred, file = "2025-2035_VSG_balanced.RData")
-# print("VSG finished")
+if(linux){load("/data/simon/25-35_VSG_prediction.RData")}else{load(file.path(wd_res, "25-35_VSG_prediction.RData"))}
+ 
+ vsg_pred_for_balancing <- prepare_prediction_for_balancing(
+   vsg_pred_for_export,
+   municipality_reg_mapping,
+   municipality_size_group_mapping_2024,
+   allowed_deviation_pred,
+   district_projection,
+   prediction_years = 2025:2035
+ )
+ 
+ balanced_vsg_pred <- vsg_pred_for_balancing %>%
+   filter(!reg_code %in% regs_to_not_balance) %>%
+   group_by(year, reg_code) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_vsg"), .keep = TRUE) %>%
+   select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, balanced_pred)
+ 
+ 
+ balanced_vsg_pred <- balanced_vsg_pred %>%
+   bind_rows(vsg_pred_for_balancing %>% 
+               filter(reg_code %in% regs_to_not_balance) %>%
+               select(municipality_code, reg_code, sex, age_group, year, PRED_vsg, projected_population) %>%
+               rename(balanced_pred = projected_population)) 
+ 
+ 
+ 
+ 
+ save(balanced_vsg_pred, file = "2025-2035_VSG_balanced_2.RData")
+ print("VSG finished")
 
 
 # CSP-VSG -----------------------------------------------------
-#load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
-# load("/data/simon/25-35_CSP-VSG_prediction.RData")
-# 
-# csp_vsg_pred_for_balancing <- prepare_prediction_for_balancing(
-#   csp_vsg_pred,
-#   municipality_reg_mapping,
-#   municipality_size_group_mapping_2024,
-#   allowed_deviation_pred,
-#   district_projection,
-#   prediction_years = 2025:2035
-# )
-# 
-# balanced_csp_vsg_pred <- csp_vsg_pred_for_balancing %>%
-#   filter(!reg_code %in% regs_to_not_balance) %>%
-#   group_by(year, reg_code) %>%
-#   group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_vsg")) %>%
-#   select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, balanced_pred)
-# 
-# 
-# balanced_csp_vsg_pred <- balanced_csp_vsg_pred %>%
-#   bind_rows(csp_vsg_pred_for_balancing %>% 
-#               filter(reg_code %in% regs_to_not_balance) %>%
-#               select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, projected_population) %>%
-#               rename(balanced_pred = projected_population)) 
-
-#save(balanced_csp_vsg_pred, file = "2025-2035_CSP-VSG_balanced.RData")
-#print("CSP-VSG finished")
+if(linux){
+    load("/data/simon/25-35_CSP-VSG_prediction.RData")
+  } else {load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData")) }  
+  
+  
+  
+  csp_vsg_pred_for_balancing <- prepare_prediction_for_balancing(
+    csp_vsg_pred,
+    municipality_reg_mapping,
+    municipality_size_group_mapping_2024,
+    allowed_deviation_pred,
+    district_projection,
+    prediction_years = 2025:2035
+  )
+  
+  balanced_csp_vsg_pred <- csp_vsg_pred_for_balancing %>%
+    filter(!reg_code %in% regs_to_not_balance) %>%
+    group_by(year, reg_code) %>%
+    group_modify(~ balance_prediction(.x, pred_col_name = "PRED_csp_vsg"), .keep = TRUE) %>%
+    select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, balanced_pred)
+  
+  
+  balanced_csp_vsg_pred <- balanced_csp_vsg_pred %>%
+    bind_rows(csp_vsg_pred_for_balancing %>% 
+                filter(reg_code %in% regs_to_not_balance) %>%
+                select(municipality_code, reg_code, sex, age_group, year, PRED_csp_vsg, projected_population) %>%
+                rename(balanced_pred = projected_population)) 
+ 
+ save(balanced_csp_vsg_pred, file = "2025-2035_CSP-VSG_balanced_2.RData")
+ print("CSP-VSG finished")
 
 
 # TFT --------------------------------------------------------------------------
@@ -530,7 +530,7 @@ tft_pred_for_balancing <- prepare_prediction_for_balancing(
 balanced_tft_pred <- tft_pred_for_balancing %>%
    filter(!reg_code %in% regs_to_not_balance) %>%
    group_by(year, reg_code) %>%
-   group_modify(~ balance_prediction(.x, pred_col_name = "tft_prediction")) %>%
+   group_modify(~ balance_prediction(.x, pred_col_name = "tft_prediction"), .keep = TRUE) %>%
    select(municipality_code, reg_code, sex, age_group, year, tft_prediction, balanced_pred)
  
  
@@ -540,7 +540,7 @@ balanced_tft_pred <- tft_pred_for_balancing %>%
                select(municipality_code, reg_code, sex, age_group, year, tft_prediction, projected_population) %>%
                rename(balanced_pred = projected_population)) 
 
-save(balanced_tft_pred, file = "2025-2035_TFT_balanced.RData")
+save(balanced_tft_pred, file = "2025-2035_TFT_balanced_2.RData")
 print("TFT finished")
 
 

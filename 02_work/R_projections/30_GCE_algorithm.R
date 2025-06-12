@@ -27,7 +27,7 @@
 #' @return A 3-dimensional array with dimensions (nrow(A), ncol(A), M) containing the support vectors,
 #'         where the middle element of the support vectors for each element in A is the
 #'         original element itself.
-generate_support_vectors <- function(A, M = 5) {
+generate_support_vectors <- function(A, M = 5, years_passed) {
   T <- nrow(A)
   K <- ncol(A)
   support_vectors <- array(0, dim = c(T, K, M))
@@ -35,39 +35,41 @@ generate_support_vectors <- function(A, M = 5) {
   for (i in 1:T) {
     for (j in 1:K) {
       original_value <- A[i, j]
-      lower_bound    <- original_value - 0.1 * original_value
-      upper_bound    <- original_value + 0.1 * original_value
+      lower_bound    <- original_value * (1-0.5 * years_passed)
+      upper_bound    <- original_value * (1+0.5 * years_passed)
       
-      # how many below vs above
-      n_rand <- M - 1
-      n_below <- floor(n_rand / 2)
-      n_above <- n_rand - n_below
+      # now we reserve 2 slots for exact endpoints and 1 for the original
+      n_rand   <- M - 3
+      n_below  <- floor(n_rand / 2)
+      n_above  <- n_rand - n_below
       
-      # generate them separately
-      vals_below <- if (n_below > 0) round(runif(n_below, lower_bound, original_value), 1) else numeric(0)
-      vals_above <- if (n_above > 0) round(runif(n_above, original_value, upper_bound), 1) else numeric(0)
+      # draw the random “below‐original” and “above‐original” points
+      vals_below <- if (n_below > 0)
+        round(runif(n_below, lower_bound, original_value), 1)
+      else numeric(0)
+      vals_above <- if (n_above > 0)
+        round(runif(n_above, original_value, upper_bound), 1)
+      else numeric(0)
       
-      # assemble support vector, placing original in the middle
-      sv <- numeric(M)
+      # assemble
+      sv  <- numeric(M)
       mid <- ceiling(M / 2)
-      sv[mid] <- original_value
       
-      # fill below
-      if (n_below > 0) {
-        idx_below <- seq_len(n_below)
-        sv[idx_below] <- vals_below
-      }
-      # fill above
-      if (n_above > 0) {
-        idx_above <- (M - n_above + 1):M
-        sv[idx_above] <- vals_above
-      }
+      sv[1]    <- lower_bound
+      sv[mid]  <- original_value
+      sv[M]    <- upper_bound
+      
+      # fill in‐between
+      if (n_below > 0)  sv[2:(mid-1)]   <- vals_below
+      if (n_above > 0)  sv[(mid+1):(M-1)] <- vals_above
       
       support_vectors[i, j, ] <- sv
     }
   }
+  
   support_vectors
 }
+
 
 
 #' Initialize Probability Distribution Over Support Vectors
