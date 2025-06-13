@@ -14,6 +14,24 @@
 
 # overview over population distribution ----------------------------------------
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_data_work, "munip_size_group_mapping_2024.RData")) 
+municipality_size_group_mapping_2024 <- municipality_size_group_mapping_2024 %>%
+  mutate(
+    population_size_group = case_when(
+      # Condition for each original category, mapping it to the new desired format with commas
+      population_size_group == "< 500"       ~ "< 500",
+      population_size_group == "500-1000"    ~ "500-1,000",
+      population_size_group == "1000-2000"   ~ "1,000-2,000",
+      population_size_group == "2000-5000"   ~ "2,000-5,000",
+      population_size_group == "5000-20000"  ~ "5,000-20,000",
+      population_size_group == "20000-50000" ~ "20,000-50,000",
+      population_size_group == "> 50000"     ~ "> 50,000",
+      TRUE ~ NA_character_ # Handle any values that don't match the above (optional, but good practice)
+    ),
+    # After recoding to consistent strings, convert to an ordered factor
+    population_size_group = factor(population_size_group,
+                                   levels = c("< 500", "500-1,000", "1,000-2,000", "2,000-5,000", "5,000-20,000", "20,000-50,000", "> 50,000"),
+                                   ordered = TRUE))
 View(head(all_munip_pop, 100))
 
 summarized_munip_pop <- all_munip_pop %>%
@@ -55,6 +73,26 @@ ggplot(summarized_munip_pop_age_group, aes(x = coarse_age_group, y = change)) +
     title = NULL
   ) +
   theme_minimal()
+
+summarized_munip_pop_size <- all_munip_pop %>%
+  select(-reg_code, -municipality, -coarse_age_group) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population, na.rm = T)) %>%
+  left_join(municipality_size_group_mapping_2024) %>%
+  filter(year %in% c(2014, 2024)) %>%
+  pivot_wider(names_from = year, values_from = population) %>%
+  mutate(change = (`2024`-`2014`)/`2024`)
+
+ggplot(summarized_munip_pop_size, aes(x = population_size_group, y = change)) +
+  geom_boxplot(fill = "cornflowerblue", colour = "black") +
+  scale_y_continuous(limits = c(-0.5, 0.5)) +
+  labs(
+    x = "Size of Municipality",
+    y = "Relative Change (2014 - 2024)",
+    title = NULL
+  ) +
+  theme_minimal()
+
          
 
 
@@ -691,3 +729,57 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
 
 
 
+# difference between balanced unbalanced cohort level
+load(file.path(wd_res, "2025-2035_LINEXP_balanced_2.RData"))
+load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+base_period <- all_munip_pop %>%
+  ungroup() %>%
+  filter(municipality_code == "62014", coarse_age_group == "20 - 29", sex == 1) %>%
+  group_by(year) %>%
+  summarise(population = sum(population)) %>%
+  select( year, population) %>%
+  mutate(type = "Historic values")
+
+cut_off_year_pop <- base_period %>% filter(year == 2024) %>% pull(population)
+
+bal_linexp <- balanced_LINEXP_pred %>%
+  ungroup() %>%
+  filter(municipality_code == "62014", age_group == "20 - 29", sex == 1) %>%
+  #group_by(year) %>%
+  #summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = balanced_pred) %>%
+  select( year, population) %>%
+  mutate(type = "balanced LINEXP")
+
+unbal_linexp <- tuned_LINEXP_pred_export %>%
+  ungroup() %>%
+  filter(municipality_code == "62014",age_group == "20 - 29", sex == 1, year > 2024) %>%
+  select(-population) %>%
+  #group_by(year) %>%
+  #summarise(balanced_pred = sum(balanced_pred)) %>%
+  rename(population = PRED_tuned_LINEXP) %>%
+  select( year, population) %>%
+  mutate(type = "unbalanced LINEXP")
+
+all_series <- base_period %>%
+  bind_rows(bal_linexp, unbal_linexp) %>%
+  bind_rows(data.frame(year = rep(2024, 2), 
+                       population = rep(cut_off_year_pop,2),
+                       type = c("balanced LINEXP", "unbalanced LINEXP")))
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2024, linetype = "dashed") +
+  labs(
+    title = paste0("Knittfeld, male, 20-29"),
+    x     = "Year",
+    y     = "Population",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "balanced LINEXP"             = "blue",
+    "unbalanced LINEXP"         = "red"
+  )) +
+  theme_minimal()
