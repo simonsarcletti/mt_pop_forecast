@@ -121,12 +121,13 @@ summary_df <- data.frame(
     "Mean population",
     "Standard deviation",
     "N by 2024 population",
-    "0-1,000",
+    "0-500",
+    "500-1,000",
     "1,001-2,000",
     "2,001-5,000",
-    "5,001-10,000",
-    "10,001-100,000",
-    "> 100,000",
+    "5,001-20,000",
+    "20,001-50,000",
+    "> 50,000",
     "Median Population per age group 2024",
     "0 - 9",
     "10 - 19",
@@ -143,12 +144,13 @@ summary_df <- data.frame(
     mean(summarized_munip_pop$population, na.rm = TRUE),
     sd(summarized_munip_pop$population, na.rm = TRUE),
     NA,
-    nrow(filter(summarized_munip_pop, population <= 1000, year ==2024)),
+    nrow(filter(summarized_munip_pop, population <= 500, year ==2024)),
+    nrow(filter(summarized_munip_pop, population > 500 & population <= 1000, year ==2024)),
     nrow(filter(summarized_munip_pop, population > 1000 & population <= 2000, year ==2024)),
     nrow(filter(summarized_munip_pop, population > 2000 & population <= 5000, year ==2024)),
-    nrow(filter(summarized_munip_pop, population > 5000 & population <= 10000, year ==2024)),
-    nrow(filter(summarized_munip_pop, population > 10000 & population <= 100000, year ==2024)),
-    nrow(filter(summarized_munip_pop, population > 100000, year ==2024)),
+    nrow(filter(summarized_munip_pop, population > 5000 & population <= 20000, year ==2024)),
+    nrow(filter(summarized_munip_pop, population > 20000 & population <= 50000, year ==2024)),
+    nrow(filter(summarized_munip_pop, population > 50000, year ==2024)),
     NA,
     median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "0 - 9") %>% pull(population)),
     median(munip_pop_by_cohort %>% filter(year == 2024, coarse_age_group == "10 - 19")%>% pull(population)),
@@ -538,7 +540,7 @@ mun_name <- "Knittelfeld"
 
 base_period <- all_munip_pop %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(population = sum(population)) %>%
   select( year, population) %>%
@@ -548,7 +550,7 @@ cut_off_year_pop <- base_period %>% filter(year == 2021) %>% pull(population)
 
 tft <- balanced_tft_test %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(population = sum(balanced_pred)) %>%
   select( year, population) %>%
@@ -556,7 +558,7 @@ tft <- balanced_tft_test %>%
 
 csp_vsg <- balanced_csp_vsg_test %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
@@ -565,7 +567,7 @@ csp_vsg <- balanced_csp_vsg_test %>%
 
 csp <- balanced_csp_test %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
@@ -574,7 +576,7 @@ csp <- balanced_csp_test %>%
 
 linexp <- balanced_LINEXP_pred %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
@@ -583,7 +585,7 @@ linexp <- balanced_LINEXP_pred %>%
 
 hp <- balanced_hp_pred %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
@@ -592,7 +594,7 @@ hp <- balanced_hp_pred %>%
 
 vsg <- balanced_vsg_test  %>%
   ungroup() %>%
-  filter(municipality_code == "62014") %>%
+  filter(municipality_code %in% c("62041","62041")) %>%
   group_by(year) %>%
   summarise(balanced_pred = sum(balanced_pred)) %>%
   rename(population = balanced_pred) %>%
@@ -611,7 +613,7 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
   geom_point() +
   geom_vline(xintercept = 2021, linetype = "dashed") +
   labs(
-    title = paste0("Knittelfeld"),
+    #title = paste0("Knittelfeld"),
     x     = "Year",
     y     = "Population",
     color = NULL
@@ -627,13 +629,15 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
   )) +
   theme_minimal()
 
+
+# all forecasts on the level of the municipality
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
-load(file.path(wd_res, "2025-2035_CSP-VSG_balanced.RData"))
-load(file.path(wd_res, "2025-2035_CSP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_HP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_VSG_balanced.RData"))
+load(file.path(wd_res, "2025-2035_CSP-VSG_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_CSP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_LINEXP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_HP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_VSG_balanced_2.RData"))
 
 base_period <- all_munip_pop %>%
   ungroup() %>%
@@ -783,3 +787,248 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
     "unbalanced LINEXP"         = "red"
   )) +
   theme_minimal()
+
+# facetted plot of all tests ---------------------------------------------------
+# graph with all test forecasts
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_res, "2022-2024_TFT_balanced.RData"))
+load(file.path(wd_res, "2022-2024_CSP_VSG_balanced.RData"))
+load(file.path(wd_res, "2022-2024_CSP_balanced.RData"))
+load(file.path(wd_res, "2022-2024_LINEXP_test_balanced.RData"))
+load(file.path(wd_res, "2022-2024_HP_test_balanced.RData"))
+load(file.path(wd_res, "2022-2024_VSG_balanced.RData"))
+
+
+
+# pick the two municipality codes you actually want:
+munis <- c("62014","62041")
+
+# 1) build each series, grouping by muni and year
+base_period <- all_munip_pop %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population), .groups = "drop") %>%
+  mutate(type = "Historic values")
+
+tft <- balanced_tft_test %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "TFT")
+
+csp_vsg <- balanced_csp_vsg_test %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "CSP-VSG")
+
+csp <- balanced_csp_test %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "CSP")
+
+linexp <- balanced_LINEXP_pred %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "LINEXP")
+
+hp <- balanced_hp_pred %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "HP")
+
+vsg <- balanced_vsg_test  %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "VSG")
+
+# 2) bind them all together
+all_series <- bind_rows(base_period, tft, csp_vsg, csp, linexp, hp, vsg)
+
+# 3) add the 2021 cut‐off horizontal points for each muni
+cut_off <- base_period %>%
+  filter(year == 2021) %>%
+  select(municipality_code, population_2021 = population)
+
+future_types <- tibble(type = c("TFT", "CSP-VSG", "CSP", "LINEXP", "HP", "VSG"))
+
+cutoff_rows <- cut_off %>%
+  crossing(future_types) %>%     # one row per muni × per type
+  mutate(
+    year       = 2021,
+    population = population_2021
+  ) %>%
+  select(municipality_code, year, population, type)
+
+all_series <- bind_rows(all_series, cutoff_rows)
+
+# 4) plot with one panel per municipality
+
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2021, linetype = "dashed") +
+  facet_wrap(~ municipality_code, ncol = 1, scales = "free_y",labeller = labeller(
+    municipality_code = c(
+      "62014" = "Kobenz",
+      "62041" = "Knittelfeld"
+    ))) + 
+  labs(
+    x     = "Year",
+    y     = "Population",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue",
+    "CSP-VSG"         = "orange",
+    "CSP"             = "red",
+    "LINEXP"          = "darkgreen",
+    "HP"              = "purple",
+    "VSG"             = "brown"
+  )) +
+  theme_minimal()
+
+
+# facetted plot of all predictions ---------------------------------------------------
+# graph with all test forecasts
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_res, "2025-2035_TFT_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_CSP-VSG_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_CSP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_LINEXP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_HP_balanced_2.RData"))
+load(file.path(wd_res, "2025-2035_VSG_balanced_2.RData"))
+
+
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+tft_pred <- read.csv2(file = file.path(wd_res, "tft_prediction_2025-2035.csv"), sep = ",")
+tft_pred <- tft_pred %>% 
+  mutate(prediction = as.numeric(prediction)) %>%
+  filter(quantile == "0.5") %>%
+  select(-quantile) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
+  rename(PRED_tft = prediction) %>%
+  mutate(population = NA) %>%
+  rename(balanced_pred = PRED_tft)
+
+load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
+csp_vsg_pred <- csp_vsg_pred %>% rename(balanced_pred = PRED_csp_vsg)
+load(file.path(wd_res, "25-35_CSP_prediction.RData"))
+csp_pred_export <- csp_pred_export %>% rename(balanced_pred = PRED_csp_final)
+load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
+tuned_LINEXP_pred_export <- tuned_LINEXP_pred_export %>% rename(balanced_pred = PRED_tuned_LINEXP)
+load(file.path(wd_res, "25-35_HP_prediction.RData"))
+hp_pred_export <- hp_pred_export %>% rename(balanced_pred = PRED_hamilton_perry)
+load(file.path(wd_res, "25-35_VSG_prediction.RData"))
+vsg_pred_for_export <- vsg_pred_for_export  %>% rename(balanced_pred = PRED_vsg)
+
+
+# pick the two municipality codes you actually want:
+munis <- c("62014","62041")
+
+# 1) build each series, grouping by muni and year
+base_period <- all_munip_pop %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population), .groups = "drop") %>%
+  mutate(type = "Historic values")
+
+tft <- tft_pred %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "TFT")
+
+csp_vsg <- csp_vsg_pred %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "CSP-VSG")
+
+csp <- csp_pred_export %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "CSP")
+
+linexp <- tuned_LINEXP_pred_export %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "LINEXP")
+
+hp <- hp_pred_export %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "HP")
+
+vsg <- vsg_pred_for_export  %>%
+  filter(year %in% 2025:2035) %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "VSG")
+
+# 2) bind them all together
+all_series <- bind_rows(base_period, tft, csp_vsg, csp, linexp, hp, vsg)
+
+# 3) add the 2021 cut‐off horizontal points for each muni
+cut_off <- base_period %>%
+  filter(year == 2024) %>%
+  select(municipality_code, population_2024 = population)
+
+future_types <- tibble(type = c("TFT", "CSP-VSG", "CSP", "LINEXP", "HP", "VSG"))
+
+cutoff_rows <- cut_off %>%
+  crossing(future_types) %>%     # one row per muni × per type
+  mutate(
+    year       = 2024,
+    population = population_2024
+  ) %>%
+  select(municipality_code, year, population, type)
+
+all_series <- bind_rows(all_series, cutoff_rows)
+
+# 4) plot with one panel per municipality
+
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2024, linetype = "dashed") +
+  facet_wrap(~ municipality_code, ncol = 1, scales = "free_y",labeller = labeller(
+    municipality_code = c(
+      "62014" = "Kobenz",
+      "62041" = "Knittelfeld"
+    ))) + 
+  labs(
+    x     = "Year",
+    y     = "Population",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue",
+    "CSP-VSG"         = "orange",
+    "CSP"             = "red",
+    "LINEXP"          = "darkgreen",
+    "HP"              = "purple",
+    "VSG"             = "brown"
+  )) +
+  theme_minimal()
+

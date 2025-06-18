@@ -19,12 +19,49 @@ municipality_size_group_mapping_2024 <- municipality_size_group_mapping_2024 %>%
 
 
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
-load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
-load(file.path(wd_res, "2025-2035_CSP-VSG_balanced.RData"))
-load(file.path(wd_res, "2025-2035_CSP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_LINEXP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_HP_balanced.RData"))
-load(file.path(wd_res, "2025-2035_VSG_balanced.RData"))
+tft_pred <- read.csv2(file = file.path(wd_res, "tft_prediction_2025-2035.csv"), sep = ",")
+tft_pred <- tft_pred %>% 
+  mutate(prediction = as.numeric(prediction)) %>%
+  filter(quantile == "0.5") %>%
+  select(-quantile) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
+  rename(PRED_tft = prediction) %>%
+  mutate(population = NA) %>%
+  rename(balanced_pred = PRED_tft)
+
+load(file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
+csp_vsg_pred <- csp_vsg_pred %>% rename(balanced_pred = PRED_csp_vsg)
+load(file.path(wd_res, "25-35_CSP_prediction.RData"))
+csp_pred_export <- csp_pred_export %>% rename(balanced_pred = PRED_csp_final)
+load(file.path(wd_res, "25-35_LINEXP_prediction.RData"))
+tuned_LINEXP_pred_export <- tuned_LINEXP_pred_export %>% rename(balanced_pred = PRED_tuned_LINEXP)
+load(file.path(wd_res, "25-35_HP_prediction.RData"))
+hp_pred_export <- hp_pred_export %>% rename(balanced_pred = PRED_hamilton_perry)
+load(file.path(wd_res, "25-35_VSG_prediction.RData"))
+vsg_pred_for_export <- vsg_pred_for_export %>% rename(balanced_pred = PRED_vsg)
+tft_with_dynamics <- read.csv2(file.path(wd_res, "tft_prediction_with_dynamics_2025-2035.csv"), sep = ",")
+tft_with_dynamics <- tft_with_dynamics %>% 
+  mutate(prediction = as.numeric(prediction)) %>%
+  filter(quantile == "0.5") %>%
+  select(-quantile) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
+  rename(PRED_tft = prediction) %>%
+  mutate(population = NA) %>%
+  rename(balanced_pred = PRED_tft)
+load(file.path(wd_res, "2025-2035_rolling_HP.RData"))
+rolling_hp_pred_export <- rolling_hp_pred_export %>% rename(balanced_pred = projected_population)
+
+
 static_vars <- read.csv2(file.path(wd_data_orig, "static_variables.csv"), encoding = "latin1")
 static_vars <- static_vars %>%
   rename(municipality_code = ID) %>%
@@ -68,8 +105,8 @@ check_extreme_trend_changes <- function(forecast_names,
       left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
       select(municipality_code, future_trend, population_size_group) %>%
       group_by(population_size_group) %>%
-      mutate(max_change = quantile(future_trend, 0.85),
-             min_change = quantile(future_trend, 0.15)) %>%
+      mutate(max_change = quantile(future_trend, 0.85, na.rm=TRUE),
+             min_change = quantile(future_trend, 0.15, na.rm = TRUE)) %>%
       mutate(extreme_neg_future_trend = case_when(future_trend < 0 & (future_trend < min_change*0.3) ~ 1,
                                                   .default = 0)) %>%
       mutate(extreme_pos_future_trend = case_when(future_trend > 0 & (future_trend > max_change*0.3) ~ 1,
@@ -97,33 +134,20 @@ check_extreme_trend_changes <- function(forecast_names,
 
 
 trend_change_df <- check_extreme_trend_changes(
-  forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
+  forecast_names = c("CSP-VSG", "TFT", "expanding_HP", "rolling_HP","LINEXP", "VSG", "CSP"),
   past_population = all_munip_pop,
   list_of_forecasts = list(
-    balanced_csp_vsg_pred,
-    balanced_tft_pred,
-    balanced_hp_pred,
-    balanced_LINEXP_pred,
-    balanced_vsg_pred,
-    balanced_csp_pred
-  ),
+    csp_vsg_pred,
+    tft_pred,
+    hp_pred_export,
+    rolling_hp_pred_export,
+    tuned_LINEXP_pred_export,
+    vsg_pred_for_export,
+    csp_pred_export
+    ),
   grouping_df = municipality_size_group_mapping_2024
 ) 
 
-
-trend_change_df <- check_trend_changes(
-  forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
-  past_population = all_munip_pop,
-  list_of_forecasts = list(
-    balanced_csp_vsg_pred,
-    balanced_tft_pred,
-    balanced_hp_pred,
-    balanced_LINEXP_pred,
-    balanced_vsg_pred,
-    balanced_csp_pred
-  ),
-  grouping_df = municipality_size_group_mapping_2024
-) 
 
 
 
@@ -171,15 +195,16 @@ check_composition_by_age <- function(forecast_names = c("CSP-VSG", "TFT"),
 }
 
 age_composition_df <- check_composition_by_age(
-  forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
+  forecast_names = c("CSP-VSG", "TFT", "TFT-dyn" ,"HP", "LINEXP", "VSG", "CSP"),
   past_population = aut_forecast,
   list_of_forecasts = list(
-    balanced_csp_vsg_pred,
-    balanced_tft_pred,
-    balanced_hp_pred,
-    balanced_LINEXP_pred,
-    balanced_vsg_pred,
-    balanced_csp_pred
+    csp_vsg_pred,
+    tft_pred,
+    tft_with_dynamics,
+    hp_pred_export,
+    tuned_LINEXP_pred_export,
+    vsg_pred_for_export,
+    csp_pred_export
   ),
   relevant_year = 2035
 )
@@ -187,7 +212,7 @@ age_composition_df <- check_composition_by_age(
 
 
 
-# extreme growth/decline
+# extreme growth/decline -------------------------------------------------------
 check_extreme_change <- function(forecast_names,
                                  past_population,
                                  list_of_forecasts,
@@ -325,18 +350,24 @@ check_extreme_change <- function(forecast_names,
 
 
 extreme_change_df <- check_extreme_change(
-  forecast_names = c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
+  forecast_names = c("CSP-VSG", "TFT", "expanding_HP", "rolling_HP","LINEXP", "VSG", "CSP"),
   past_population = all_munip_pop,
   list_of_forecasts = list(
-    balanced_csp_vsg_pred,
-    balanced_tft_pred,
-    balanced_hp_pred,
-    balanced_LINEXP_pred,
-    balanced_vsg_pred,
-    balanced_csp_pred
+    csp_vsg_pred,
+    tft_pred,
+    hp_pred_export,
+    rolling_hp_pred_export,
+    tuned_LINEXP_pred_export,
+    vsg_pred_for_export,
+    csp_pred_export
   ),
   grouping_df = municipality_size_group_mapping_2024
 )
+
+trend_change_df %>%
+  rename(class = population_size_group) %>%
+  rbind(extreme_change_df %>% unite("class", direction_of_change:population_size_group, sep ="_")) %>%
+  write.csv2(file = file.path(wd_res, "plausibility_check_trends_2025-2035.csv"))
 
 
 # deviation from expected cohort count -----------------------------------------
@@ -393,15 +424,16 @@ check_deviation_from_moved_on <- function(forecast_names,
 
 
 deviation_moved_on_df <- check_deviation_from_moved_on(
-  forecast_names =  c("CSP-VSG", "TFT", "HP", "LINEXP", "VSG", "CSP"),
+  forecast_names =  c("CSP-VSG", "TFT", "TFT-dyn" ,"HP", "LINEXP", "VSG", "CSP"),
   past_population = all_munip_pop,
   list_of_forecasts = list(
-    balanced_csp_vsg_pred,
-    balanced_tft_pred,
-    balanced_hp_pred,
-    balanced_LINEXP_pred,
-    balanced_vsg_pred,
-    balanced_csp_pred
+    csp_vsg_pred,
+    tft_pred,
+    tft_with_dynamics,
+    hp_pred_export,
+    tuned_LINEXP_pred_export,
+    vsg_pred_for_export,
+    csp_pred_export
   )
 )
 
@@ -411,5 +443,253 @@ trend_change_df %>%
   rbind(age_composition_df %>% rename(class = age_group)) %>%
   rbind(extreme_change_df %>% unite("class", direction_of_change:population_size_group, sep ="_")) %>%
   rbind(deviation_moved_on_df %>% rename(class = age_group)) %>%
-  write.csv2(file = file.path(wd_res, "plausibility_check.csv"))
+  write.csv2(file = file.path(wd_res, "plausibility_check_unbalanced.csv"))
+
+
+# plausibility check for period 2026-2035
+load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
+all_munip_pop <- all_munip_pop_2025
+load(file.path(wd_data_work, "munip_size_group_mapping_2024.RData"))
+municipality_size_group_mapping_2024 <- municipality_size_group_mapping_2024 %>%
+  mutate(population_size_group = factor(population_size_group, 
+                                        levels = c("< 500", "500-1000", "1000-2000", "2000-5000", "5000-20000", "20000-50000","> 50000"),
+                                        ordered = TRUE))
+
+
+load(file.path(wd_res, "2026-2035_rolling_HP.RData"))
+rolling_hp_pred_export <- rolling_hp_pred_export %>% rename(balanced_pred = projected_population)
+load(file.path(wd_res, "2026-2035_HP_expanding_prediction.RData"))
+hp_pred_export <- hp_pred_export %>% rename(balanced_pred = PRED_hamilton_perry)
+load(file.path(wd_res, "2026-2035_CSP-VSG_prediction.RData"))
+csp_vsg_pred <- csp_vsg_pred %>% rename(balanced_pred = PRED_csp_vsg)
+
+
+# trend changes in urban/rural muns --------------------------------------------
+
+check_extreme_trend_changes <- function(forecast_names,
+                                        past_population,
+                                        list_of_forecasts,
+                                        grouping_df) {
+  past_trends <- past_population %>%
+    filter(year %in% c(2016, 2025)) %>%
+    group_by(municipality_code, year) %>%
+    summarise(population = sum(population)) %>%
+    pivot_wider(names_from = year, values_from = population) %>%
+    mutate(past_trend = `2025` - `2016`) %>%
+    left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
+    select(municipality_code, past_trend, population_size_group) %>%
+    group_by(population_size_group) %>%
+    mutate(max_change = quantile(past_trend, 0.85),
+           min_change = quantile(past_trend, 0.15)) %>%
+    mutate(extreme_neg_trend = case_when(past_trend < 0 & (past_trend < min_change) ~ 1,
+                                         .default = 0)) %>%
+    mutate(extreme_pos_trend = case_when(past_trend > 0 & (past_trend > max_change) ~ 1,
+                                         .default = 0))
+  
+  
+  list_future_trends <- list()
+  result_df <- data.frame(population_size_group = unique(past_trends$population_size_group))
+  
+  for (forecast in list_of_forecasts) {
+    future_trends <- forecast %>%
+      filter(year %in% c(2026, 2035)) %>%
+      group_by(municipality_code, year) %>%
+      summarise(population = sum(balanced_pred)) %>%
+      pivot_wider(names_from = year, values_from = population) %>%
+      mutate(future_trend = `2035` - `2026`) %>%
+      left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
+      select(municipality_code, future_trend, population_size_group) %>%
+      group_by(population_size_group) %>%
+      mutate(max_change = quantile(future_trend, 0.85, na.rm=TRUE),
+             min_change = quantile(future_trend, 0.15, na.rm = TRUE)) %>%
+      mutate(extreme_neg_future_trend = case_when(future_trend < 0 & (future_trend < min_change*0.3) ~ 1,
+                                                  .default = 0)) %>%
+      mutate(extreme_pos_future_trend = case_when(future_trend > 0 & (future_trend > max_change*0.3) ~ 1,
+                                                  .default = 0)) %>%
+      ungroup() %>%
+      select(municipality_code, population_size_group, extreme_neg_future_trend, extreme_pos_future_trend) %>%
+      left_join(select(ungroup(past_trends), municipality_code, extreme_neg_trend, extreme_pos_trend),
+                by = join_by(municipality_code)) %>%
+      mutate(extreme_trend_change = case_when(
+        extreme_neg_trend == 1 & extreme_pos_future_trend == 1 ~ 1,
+        extreme_pos_trend == 1 & extreme_neg_future_trend == 1 ~ 1,
+        .default = 0
+      )) %>%
+      group_by(population_size_group) %>%
+      summarise(extreme_trend_change = sum(extreme_trend_change) / n()*100)
+    
+    result_df <- result_df %>%
+      left_join(future_trends, by = "population_size_group")
+  }
+  names(result_df)[2:ncol(result_df)] <- forecast_names
+  
+  return(result_df)
+}
+
+
+
+trend_change_df <- check_extreme_trend_changes(
+  forecast_names = c("CSP-VSG", "expanding_HP", "rolling_HP"),
+  past_population = all_munip_pop,
+  list_of_forecasts = list(
+    csp_vsg_pred,
+    hp_pred_export,
+    rolling_hp_pred_export
+  ),
+  grouping_df = municipality_size_group_mapping_2024
+) 
+
+
+# extreme growth/decline -------------------------------------------------------
+check_extreme_change <- function(forecast_names,
+                                 past_population,
+                                 list_of_forecasts,
+                                 grouping_df) {
+  past_trends <- past_population %>%
+    filter(year %in% c(2016, 2025)) %>%
+    group_by(municipality_code, year) %>%
+    summarise(population = sum(population)) %>%
+    pivot_wider(names_from = year, values_from = population) %>%
+    mutate(past_trend = (`2025` - `2016`) / `2016`) %>%
+    left_join(grouping_df %>% select(municipality_code, population_size_group)) %>%
+    select(municipality_code, past_trend, population_size_group) %>%
+    group_by(population_size_group) %>%
+    summarise(max_change = max(past_trend),
+              min_change = min(past_trend))
+  
+  
+  max_change1 <- past_trends %>% filter(population_size_group == "< 500") %>% pull(max_change)
+  max_change2 <- past_trends %>% filter(population_size_group == "500-1000") %>% pull(max_change)
+  max_change3 <- past_trends %>% filter(population_size_group == "1000-2000") %>% pull(max_change)
+  max_change4 <- past_trends %>% filter(population_size_group == "2000-5000") %>% pull(max_change)
+  max_change6 <- past_trends %>% filter(population_size_group == "5000-20000") %>% pull(max_change)
+  max_change7 <- past_trends %>% filter(population_size_group == "20000-50000") %>% pull(max_change)
+  max_change5 <- past_trends %>% filter(population_size_group == "> 50000") %>% pull(max_change)
+  min_change1 <- past_trends %>% filter(population_size_group == "< 500") %>% pull(min_change)
+  min_change2 <- past_trends %>% filter(population_size_group == "500-1000") %>% pull(min_change)
+  min_change3 <- past_trends %>% filter(population_size_group == "1000-2000") %>% pull(min_change)
+  min_change4 <- past_trends %>% filter(population_size_group == "2000-5000") %>% pull(min_change)
+  min_change6 <- past_trends %>% filter(population_size_group == "5000-20000") %>% pull(min_change)
+  min_change7 <- past_trends %>% filter(population_size_group == "20000-50000") %>% pull(min_change)
+  min_change5 <- past_trends %>% filter(population_size_group == "> 50000") %>% pull(min_change)
+  
+  list_future_trends <- list()
+  result_df <- data.frame(direction_of_change = c(rep("postive", 7), rep("negative", 7)),
+                          population_size_group = rep(unique(past_trends$population_size_group), 2))
+  
+  for (i in seq_along(list_of_forecasts)) {
+    forecast_df <- list_of_forecasts[[i]]
+    f_name     <- forecast_names[i]
+    
+    future_trends <- forecast_df %>%
+      filter(year %in% c(2026, 2035)) %>%
+      group_by(municipality_code, year) %>%
+      summarise(population = sum(balanced_pred),
+                .groups = "drop") %>%
+      pivot_wider(names_from = year, values_from = population) %>%
+      mutate(future_trend = (`2035` - `2026`) / `2026`) %>%
+      select(municipality_code, future_trend) %>%
+      left_join(grouping_df %>% select(municipality_code, population_size_group),
+                by = "municipality_code")
+    
+    # Now, count how many “future_trend” exceed the historical max_change for each category
+    extreme_count <- c(
+      # positive “extreme” growth (one row per size‐group)
+      future_trends %>% 
+        filter(population_size_group == "< 500", 
+               future_trend >  0, 
+               future_trend >  max_change1 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "500-1000", 
+               future_trend >  0, 
+               future_trend >  max_change2 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "1000-2000", 
+               future_trend >  0, 
+               future_trend >  max_change3 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "2000-5000", 
+               future_trend >  0, 
+               future_trend >  max_change4 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "5000-20000", 
+               future_trend >  0, 
+               future_trend >  max_change6 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "20000-50000", 
+               future_trend >  0, 
+               future_trend >  max_change7 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "> 50000", 
+               future_trend >  0, 
+               future_trend >  max_change5 * 0.8) %>% 
+        nrow(),
+      
+      # negative “extreme” decline (one row per size‐group)
+      future_trends %>% 
+        filter(population_size_group == "< 500", 
+               future_trend <  0, 
+               future_trend <  min_change1 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "500-1000", 
+               future_trend <  0, 
+               future_trend <  min_change2 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "1000-2000", 
+               future_trend <  0, 
+               future_trend <  min_change3 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "2000-5000", 
+               future_trend <  0, 
+               future_trend <  min_change4 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "5000-20000", 
+               future_trend <  0, 
+               future_trend <  min_change6 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "20000-50000", 
+               future_trend <  0, 
+               future_trend <  min_change7 * 0.8) %>% 
+        nrow(),
+      future_trends %>% 
+        filter(population_size_group == "> 50000", 
+               future_trend <  0, 
+               future_trend <  min_change5 * 0.8) %>% 
+        nrow()
+    )
+    
+    # Attach that vector as a new column named after f_name:
+    result_df[[f_name]] <- extreme_count
+  }
+  
+  return(result_df)
+}
+
+
+extreme_change_df <- check_extreme_change(
+  forecast_names = c("CSP-VSG", "expanding_HP", "rolling_HP"),
+  past_population = all_munip_pop,
+  list_of_forecasts = list(
+    csp_vsg_pred,
+    hp_pred_export,
+    rolling_hp_pred_export
+  ),
+  grouping_df = municipality_size_group_mapping_2024
+)
+
+trend_change_df %>%
+  rename(class = population_size_group) %>%
+  rbind(extreme_change_df %>% unite("class", direction_of_change:population_size_group, sep ="_")) %>%
+  write.csv2(file = file.path(wd_res, "plausibility_check_trends_2026-2035.csv"))
 

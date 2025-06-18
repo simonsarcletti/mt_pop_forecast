@@ -668,3 +668,82 @@ save(
   aut_forecast,
   file = file.path(wd_data_work, "aut_forecast_bl_sex_age_group.RData")
 )
+
+
+# new data for 2025 ------------------------------------------------------------
+# read data for 2025, summarise it accordingly, and join with all_munip_pop
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+
+pop_2025 <- read_delim(
+  file.path(wd_data_orig, "pop_2025.csv"),
+  delim = ";",
+  skip = 6,
+  locale = locale(decimal_mark = ",", encoding = "Latin1")
+) %>%
+  select(-c(Werte, Anmerkungen, `...8`)) %>%
+  slice(1:(n() - 9)) %>%
+  rename(
+    year = Jahr,
+    age_group = "Alter in 5-Jahresgruppen",
+    municipality = "Gemeinde (Vergröberung über Politischen Bezirk)",
+    sex = Geschlecht,
+    population = Anzahl
+  ) %>%
+  mutate(
+    age_group = case_when(
+      age_group %in% c("bis 4 Jahre", "5 bis 9 Jahre") ~ "0 - 9",
+      age_group %in% c("10 bis 14 Jahre", "15 bis 19 Jahre") ~ "10 - 19",
+      age_group %in% c("20 bis 24 Jahre", "25 bis 29 Jahre") ~ "20 - 29",
+      age_group %in% c("30 bis 34 Jahre", "35 bis 39 Jahre", "40 bis 44 Jahre") ~ "30 - 44",
+      age_group %in% c("45 bis 49 Jahre", "50 bis 54 Jahre") ~ "45 - 54",
+      age_group %in% c("55 bis 59 Jahre", "60 bis 64 Jahre") ~ "55 - 64",
+      age_group %in% c("65 bis 69 Jahre", "70 bis 74 Jahre") ~ "65 - 74",
+      age_group %in% c("75 bis 79 Jahre", "80 bis 84 Jahre", "85 bis 89 Jahre", "90 bis 94 Jahre", "95 bis 99 Jahre", "100 Jahre und älter") ~ "75+"
+    )
+  ) %>%
+  mutate(population = as.numeric(population)) %>%
+  group_by(year, municipality, age_group, sex) %>%
+  summarise(population = sum(population, na.rm = T)) %>%
+  mutate(sex = case_when(sex == "männlich" ~ 1, sex == "weiblich" ~ 2)) %>%
+  separate_wider_delim(
+    municipality,
+    delim = "<",
+    names = c("municipality", "municipality_code")
+  ) %>%
+  mutate(municipality_code = str_remove(municipality_code, ">"))
+
+fuerstenfeld_df <- pop_2025 %>%
+  filter(municipality_code == 62280) %>%
+  mutate(municipality_code = "62267") %>%
+  mutate(population = population * (1-0.1404))
+
+soechau_df <- pop_2025 %>%
+  filter(municipality_code == 62280) %>%
+  mutate(municipality_code = "62252") %>%
+  mutate(population = population * 0.1404)
+
+pop_2025_2 <- pop_2025 %>%
+  filter(!municipality_code %in% c("62280", "0", "90001")) %>%
+  bind_rows(fuerstenfeld_df, soechau_df) %>%
+  left_join(all_munip_pop %>% select(municipality_code, reg_code) %>% distinct(),
+            by = "municipality_code") %>%
+  mutate(smoothed_population = NA) %>%
+  mutate(year = as.numeric(year)) %>%
+  rename(coarse_age_group = age_group) 
+
+all_munip_pop_2025 <- all_munip_pop %>%
+  bind_rows(pop_2025_2) %>%
+  group_by(municipality_code, sex, coarse_age_group) %>%
+  arrange(year) %>%
+  select(-smoothed_population) %>%
+  mutate(rolling_mean_population = rollmean(
+    population,
+    k = 3,
+    fill = NA,
+    align = "right"
+  )) %>%
+  rename(smoothed_population = rolling_mean_population)
+
+
+save(all_munip_pop_2025,
+     file = file.path(wd_data_work, "all_municipalities_population_2025.RData"))

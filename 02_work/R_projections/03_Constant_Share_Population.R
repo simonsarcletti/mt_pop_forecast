@@ -12,7 +12,8 @@
 # Copyright JOANNEUM RESEARCH, 2025
 ############################################################################## #
 
-load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
+all_munip_pop <- all_munip_pop_2025
 load(file.path(wd_data_work, "district_projection.RData"))
 
 
@@ -156,12 +157,12 @@ plot_prediction(
 # Prediction for 2025-2035 -----------------------------------------------------
 # tuning of base period length
 n_prediction_periods_valid <- 5
-n_prediction_periods_pred <- 11
-valid_jump_off_year <- 2019
-pred_jump_off_year <- 2024
-base_period_lengths <- 18
-validation_period <- 2020:2024
-forecast_years <- 2025:2035
+n_prediction_periods_pred <- 10
+valid_jump_off_year <- 2020
+pred_jump_off_year <- 2025
+base_period_lengths <- 19
+validation_period <- 2021:2025
+forecast_years <- 2026:2035
 
 csp_data <- all_munip_pop %>%
   select(-smoothed_population) %>%
@@ -254,7 +255,7 @@ select(municipality_code,
   rename(age_group = coarse_age_group)
 
 save(csp_pred_export,
-     file = file.path(wd_res, "25-35_CSP_prediction.RData"))
+     file = file.path(wd_res, "2026-2035_CSP_prediction.RData"))
 
 plot_prediction(
   train_data = csp_pred_export %>% dplyr::filter(year %in% 2002:2024),

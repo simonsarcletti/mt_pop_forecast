@@ -14,7 +14,8 @@
 
 # load data and train test split------------------------------------------------
 
-load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
+all_munip_pop <- all_munip_pop_2025
 
 
 # LIN/EXP prediction -----------------------------------------------------------
@@ -224,12 +225,12 @@ plot_prediction(
 
 # prediction 2025-2035 ---------------------------------------------------------
 # Hyperparameter tuning: Find optmal length of base period for each index for TEST case
-base_period_lengths <- 1:18
+base_period_lengths <- 1:19
 valid_prediction_periods <- 5
-valid_years <- 2020:2024
+valid_years <- 2021:2025
 
 
-train_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
+train_data <- all_munip_pop %>% filter(year %in% c(2002:2025)) %>%
   rename(age_group = coarse_age_group)
 
 
@@ -277,8 +278,8 @@ LINEXP_MAE <- LINEXP_validation %>%
 
 
 # prediction with found hyperparameters 
-prediction_periods <- 11
-forecast_years <- (2024 + 1):(2024+prediction_periods)
+prediction_periods <- 10
+forecast_years <- (2025 + 1):(2025+prediction_periods)
 
 
 prediction_data <- all_munip_pop %>%
@@ -346,7 +347,7 @@ vsg_data <- tuned_LINEXP_prediction %>%
 vsg_prediction <- vsg_data %>%
   group_by(reg_code, sex, age_group) %>%
   group_modify( ~ return_vsg_prediction(.x,
-                                        jump_off_year = 2024),
+                                        jump_off_year = 2025),
                 .keep = TRUE) %>%
   ungroup()
 
@@ -361,7 +362,7 @@ vsg_pred_for_export <- vsg_prediction %>%
          PRED_vsg)
 
 save(vsg_pred_for_export,
-     file = file.path(wd_res, "25-35_VSG_prediction.RData"))
+     file = file.path(wd_res, "2026-2035_VSG_prediction.RData"))
 
 
 plot_prediction(

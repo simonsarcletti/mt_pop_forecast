@@ -31,8 +31,8 @@ save(csp_vsg_test,
 
 
 # csp-vsg prediction -----------------------------------------------------------
-load(file.path(wd_res, "25-35_CSP_prediction.RData"))
-load(file.path(wd_res, "25-35_VSG_prediction.RData"))
+load(file.path(wd_res, "2026-2035_CSP_prediction.RData"))
+load(file.path(wd_res, "2026-2035_VSG_prediction.RData"))
 
 csp_vsg_pred <- csp_pred_export %>%
   left_join(select(vsg_pred_for_export, -population), 
@@ -44,7 +44,7 @@ csp_vsg_pred <- csp_pred_export %>%
 
 
 save(csp_vsg_pred, 
-     file = file.path(wd_res, "25-35_CSP-VSG_prediction.RData"))
+     file = file.path(wd_res, "2026-2035_CSP-VSG_prediction.RData"))
 
 
 

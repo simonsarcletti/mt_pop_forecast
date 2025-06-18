@@ -30,7 +30,7 @@ export_wide_result <- function(data,
     #mutate(
     #  !!forecast_q := as.numeric(!!forecast_q)
     #) %>%
-    full_join(select(all_munip_pop, municipality_code, sex, coarse_age_group, year,population) %>% ungroup(),
+    full_join(select(all_munip_pop, municipality_code, sex, coarse_age_group, year, population) %>% ungroup(),
               by = join_by(municipality_code, sex, coarse_age_group, year)) %>%
     mutate(
       population = case_when(
@@ -133,6 +133,28 @@ tft_pred <- read.csv2(file.path(wd_res, "tft_prediction_2025-2035.csv"), sep = "
   rename(PRED_tft = prediction) %>%
   mutate(population = NA)
 
+tft_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% mutate(PRED_tft = as.numeric(PRED_tft)) %>%
+  export_wide_result(., "population", "PRED_tft", output_name = "2025-2035_TFT_prediction_wide.csv", wd_res = wd_res)
+
+
+load(file.path(wd_res, "2025-2035_rolling_HP.RData"))
+rolling_hp_pred_export <- rolling_hp_pred_export %>%
+  group_by(municipality_code, sex, age_group) %>%
+  arrange(year) %>%
+  mutate(smoothed_pred = rollmean(
+    projected_population,
+    k = 5,
+    fill = NA,
+    align = "right"
+  )) %>%
+  select(-projected_population)
+rolling_hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "smoothed_pred", output_name = "2025-2035_rolling_HP_smoothed_on_raw.csv", wd_res = wd_res)
+
+
+load(file.path(wd_res, "2025-2035_rolling_HP_on_raw.RData"))
+smoothed_rolling_hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "smoothed_pred", output_name = "2025-2035_rolling_HP_smoothed_prediction.csv", wd_res = wd_res)
 
 
 # export balanced --------------------------------------------------------------
@@ -173,3 +195,60 @@ load(file.path(wd_res, "2025-2035_LINEXP_balanced_2.RData"))
 balanced_LINEXP_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup() %>% select(-reg_code) %>%
   export_wide_result(., "PRED_tuned_LINEXP", "balanced_pred", output_name = "2025-2035_LINEXP_balanced_2.csv", wd_res = wd_res)
 
+tft_with_dynamics <- read.csv2(file.path(wd_res, "tft_prediction_with_dynamics_2025-2035.csv"), sep = ",")
+tft_with_dynamics <- tft_with_dynamics %>% 
+  mutate(prediction = as.numeric(prediction)) %>%
+  filter(quantile == "0.5") %>%
+  select(-quantile) %>%
+  separate(
+    original_index,
+    into = c("municipality_code", "sex", "age_group"),
+    sep = "_"
+  ) %>%
+  mutate(sex = as.character(round(as.numeric(sex), 0))) %>%
+  rename(PRED_tft = prediction) %>%
+  mutate(population = NA) %>%
+  rename(balanced_pred = PRED_tft)
+tft_with_dynamics %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>% ungroup()  %>%
+  export_wide_result(., "population", "balanced_pred", output_name = "2025-2035_tft_dynamics.csv", wd_res = wd_res)
+
+
+# export of prediction of 2026 onwards
+load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
+all_munip_pop <- all_munip_pop_2025
+
+load(file.path(wd_res, "2026-2035_rolling_HP.RData"))
+rolling_hp_pred_export <- rolling_hp_pred_export %>%
+  group_by(municipality_code, sex, age_group) %>%
+  arrange(year) %>%
+  mutate(smoothed_pred = rollmean(
+    projected_population,
+    k = 5,
+    fill = NA,
+    align = "right"
+  )) %>%
+  select(-projected_population)
+rolling_hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "smoothed_pred", output_name = "2026-2035_rolling_HP_smoothed_prediction.csv", wd_res = wd_res,historic_years = 2002:2025,
+                     forecast_years  = 2026:2035)
+
+load(file.path(wd_res, "2026-2035_HP_expanding_prediction.RData"))
+hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_hamilton_perry", output_name = "2026-2035_expanding_HP_prediction.csv", wd_res = wd_res,historic_years = 2002:2025,
+                     forecast_years  = 2026:2035)
+
+load(file.path(wd_res, "2026-2035_HP_expanding_prediction.RData"))
+hp_pred_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_hamilton_perry", output_name = "2026-2035_expanding_HP_prediction.csv", wd_res = wd_res,historic_years = 2002:2025,
+                     forecast_years  = 2026:2035)
+
+load(file.path(wd_res, "2026-2035_CSP-VSG_prediction.RData"))
+csp_vsg_pred %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_csp_vsg", output_name = "2026-2035_CSP-VSG_prediction.csv", wd_res = wd_res,historic_years = 2002:2025,
+                     forecast_years  = 2026:2035)
+
+
+load(file.path(wd_res, "2026-2035_HP_expanding_forecast_smoothed.RData"))
+hp_pred_forecast_smoothed_export <- hp_pred_forecast_smoothed_export %>% rename(coarse_age_group = age_group) %>% mutate(sex = as.numeric(sex)) %>%
+  export_wide_result(., "population", "PRED_hamilton_perry", output_name = "2026-2035_exp_HP_forecast_smoothed.csv", wd_res = wd_res,historic_years = 2002:2025,
+                     forecast_years  = 2026:2035)

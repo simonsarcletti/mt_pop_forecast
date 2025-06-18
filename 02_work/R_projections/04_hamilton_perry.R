@@ -15,8 +15,8 @@
 
 ##############################################################################~#
 # Data reading #################################################################
-load(file.path(wd_data_work, "all_municipalities_population.RData"))
-
+load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
+all_munip_pop <- all_munip_pop_2025
 
 # Hamilton/Perry prediction ----------------------------------------------------
 return_hp_projection <- function(data,
@@ -150,6 +150,7 @@ hp_data <- all_munip_pop %>% filter(year %in% c(2002:2024)) %>%
   mutate(year = as.character(year))
 
 
+
 hp_test <- hp_data %>%
   group_by(municipality_code) %>%
   group_modify( ~ return_hp_projection(.x)) %>%
@@ -185,8 +186,8 @@ save(hp_test_export,
 
 
 # HP (actual) prediction -------------------------------------------------------
-jump_off_year <- 2024
-prediction_periods <- 11
+jump_off_year <- 2025
+prediction_periods <- 10
 
 hp_pred <- hp_data %>%
   group_by(municipality_code) %>%
@@ -218,7 +219,7 @@ hp_pred_export <- hp_pred %>%
 
 
 save(hp_pred_export,
-     file= file.path(wd_res, "25-35_HP_prediction.RData"))
+     file= file.path(wd_res, "2026-2035_HP_expanding_prediction.RData"))
 
 
 # visualisations ---------------------------------------------------------------
@@ -258,3 +259,139 @@ plot_prediction(train_data = hp_prediction_export %>% dplyr::filter(year %in% 20
                 sex = 1,
                 age_group = "0 - 9",
                 prediction_method = "HP")
+
+
+
+
+# comparison of HP on smoothed, unsmoothed data
+hp_data <- all_munip_pop %>% filter(year %in% c(2002:2025)) %>%
+  rename(age_group = coarse_age_group) %>%
+  unite("cohort", c("sex", "age_group")) %>%
+  select(municipality_code, cohort, year, smoothed_population) %>%
+  rename(population = smoothed_population) %>%
+  mutate(year = as.character(year))
+
+hp_data_unsmoothed <- all_munip_pop %>% filter(year %in% c(2002:2025)) %>%
+  rename(age_group = coarse_age_group) %>%
+  unite("cohort", c("sex", "age_group")) %>%
+  select(municipality_code, cohort, year, population) %>%
+         #rename(population = smoothed_population) %>%
+         mutate(year = as.character(year))
+
+
+
+jump_off_year <- 2025
+prediction_periods <- 10
+
+hp_pred_smoothed <- hp_data %>%
+  group_by(municipality_code) %>%
+  group_modify( ~ return_hp_projection(.x,
+                                       n_prediction_periods = prediction_periods, 
+                                       jump_off_year = jump_off_year)) %>%
+  ungroup()
+
+
+hp_pred_unsmoothed <- hp_data_unsmoothed %>%
+  group_by(municipality_code) %>%
+  group_modify( ~ return_hp_projection(.x,
+                                       n_prediction_periods = prediction_periods, 
+                                       jump_off_year = jump_off_year)) %>%
+  ungroup()
+
+hp_pred_forecast_smoothed <- hp_pred_unsmoothed %>%
+  group_by(municipality_code, cohort) %>%
+  mutate(projected_population = rollmean(
+    projected_population,
+    k = 3,
+    fill = NA,
+    align = "right"
+  )) 
+
+# smooth only prediction
+graz__unsmoothed_smoothed <- hp_pred_unsmoothed %>%
+  filter(municipality_code == "62041") %>% 
+  mutate(projected_population = rollmean(
+    projected_population,
+    k = 3,
+    fill = NA,
+    align = "right"
+  )) %>%
+  filter(year %in% 2026:2035) %>% 
+  group_by(municipality_code, year) %>% 
+  summarise(population = sum(projected_population, na.rm = T)) %>%
+  mutate(series = "forecast_smoothed")
+
+
+
+graz_hp_smoothed <- hp_pred_smoothed %>%
+  filter(municipality_code == "62041") %>%
+  group_by(municipality_code, year) %>% 
+  summarise(population = sum(projected_population, na.rm = T)) %>%
+  mutate(series = "smoothed")
+
+graz_hp_unsmoothed <- hp_pred_unsmoothed %>%
+  filter(municipality_code == "62041") %>%
+  group_by(municipality_code, year) %>% 
+  summarise(population = sum(projected_population, na.rm = T)) %>%
+  mutate(series = "unsmoothed")
+
+
+graz_for_plot <- graz_hp_smoothed %>%
+  bind_rows(graz_hp_unsmoothed) %>%
+  bind_rows(graz__unsmoothed_smoothed)
+
+
+ggplot(graz_for_plot, aes(x = year,y = population, color = series)) +
+  geom_line(size = 0.75) +
+  ggtitle("Knittelfeld") +
+  geom_vline(xintercept = 2025, linetype = "dashed") +
+  ylim(11000, 14000) +
+  scale_x_continuous(
+    breaks = seq(2005, 2035, by = 5), 
+    limits = c(2002, 2035)          
+  )
+
+
+hp_pred_forecast_smoothed_export <- hp_pred_forecast_smoothed %>%
+  mutate(year = as.character(year)) %>%
+  #left_join(hp_data, 
+  #          by = join_by(municipality_code, cohort, year)) %>%
+  separate(cohort, 
+           into = c("sex", "age_group"),
+           sep = "_") %>%
+  #rename(smoothed_population = population) %>%
+  mutate(year = as.numeric(year),
+         sex = as.numeric(sex)) %>%
+  left_join(select(all_munip_pop, -smoothed_population), 
+            by = join_by(municipality_code == municipality_code,
+                         sex == sex, 
+                         age_group == coarse_age_group,
+                         year == year)) %>%
+  select(-municipality) %>%
+  rename(PRED_hamilton_perry = projected_population) %>%
+  mutate(year = as.numeric(year)) %>%
+  select(municipality_code, sex, age_group, year, population, PRED_hamilton_perry)
+
+
+save(hp_pred_forecast_smoothed_export,
+     file= file.path(wd_res, "2026-2035_HP_expanding_forecast_smoothed.RData"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
