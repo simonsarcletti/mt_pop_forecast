@@ -34,7 +34,7 @@ if (!require("tibble")) {
 }
 
 if ( linux){
-  load("/data/simon/all_municipalities_population.RData")
+  load("/data/simon/all_municipalities_population_2025.RData")
 } else {
   load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
 }
