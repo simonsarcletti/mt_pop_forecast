@@ -33,14 +33,14 @@ if (!require("tibble")) {
   install.packages("tibble")
 }
 
-if ( linux){
+if (linux) {
   load("/data/simon/all_municipalities_population_2025.RData")
 } else {
   load(file.path(wd_data_work, "all_municipalities_population_2025.RData"))
 }
 all_munip_pop <- all_munip_pop_2025
 rm(all_munip_pop_2025)
-if ( linux){
+if (linux) {
   load("/data/simon/municipality_code_reg_code_mapping.RData")
 } else {
   load(file.path(wd_data_work, "municipality_code_reg_code_mapping.RData"))
@@ -77,22 +77,29 @@ if ( linux){
 #' and computes row and column constraints. The `balance_matrix()` function is then used to
 #' perform the balancing using GCE. The final balanced predictions are merged back into the
 #' original dataset in long format.
-balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
+balance_prediction <- function(data,
+                               M = 3,
+                               prior = "uniform",
+                               pred_col_name) {
   pred_col <-  ensym(pred_col_name)
   
   init_matrix <- data %>%
     ungroup() %>%
     select(municipality_code, sex_age_cohort, !!pred_col) %>%
-    pivot_wider(id_cols = sex_age_cohort,
-                names_from = municipality_code,
-                values_from = !!pred_col) %>%
+    pivot_wider(
+      id_cols = sex_age_cohort,
+      names_from = municipality_code,
+      values_from = !!pred_col
+    ) %>%
     column_to_rownames(var = "sex_age_cohort") %>%
     as.matrix()
   
   print(colnames(init_matrix)[1])
   print(data$year[1])
   
-  support_vectors <- generate_support_vectors(init_matrix, M = M, years_passed = data$year[1] - jump_off_year)
+  support_vectors <- generate_support_vectors(init_matrix,
+                                              M = M,
+                                              years_passed = data$year[1] - jump_off_year)
   
   
   row_names <- rownames(init_matrix)
@@ -103,8 +110,7 @@ balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
       group_by(municipality_code,
                min_percentage_change,
                max_percentage_change) %>%
-      summarise(!!pred_col := sum(!!pred_col),
-                .groups = 'drop') %>%
+      summarise(!!pred_col := sum(!!pred_col), .groups = 'drop') %>%
       mutate(
         lower_bound = !!pred_col * (1 + min_percentage_change * 2 / 100),
         upper_bound = !!pred_col * (1 + max_percentage_change * 2 / 100)
@@ -170,7 +176,7 @@ balance_prediction <- function(data, M = 3, prior = "uniform", pred_col_name) {
       values_to = "balanced_pred"
     )
   
-  data <- select(data, -reg_code, -year) %>%
+  data <- select(data, -bl_code, -year) %>%
     left_join(out_matrix_long, by = join_by(municipality_code, sex_age_cohort))
   return(data)
 }
@@ -231,10 +237,12 @@ allowed_deviation_pred <- all_munip_pop %>%
   select(municipality_code, year, population) %>%
   group_by(municipality_code, year) %>%
   summarise(population = sum(population, na.rm = T)) %>%
-  mutate(# Get the population in 2024 for the current group
+  mutate(
+    # Get the population in 2024 for the current group
     population_2025 = population[year == 2025],
     # Calculate the percentage change compared to 2024
-    percentage_change = ((population_2025 - population) / population) * 100) %>%
+    percentage_change = ((population_2025 - population) / population) * 100
+  ) %>%
   ungroup() %>%
   mutate(
     population_size_group = case_when(
@@ -247,7 +255,7 @@ allowed_deviation_pred <- all_munip_pop %>%
       population_2025 > 5000 &
         population_2025 <= 20000 ~ "5000-20000",
       population_2025 > 20000 &
-        population_2025 <= 50000 ~ "20000-50000", 
+        population_2025 <= 50000 ~ "20000-50000",
       population_2025 > 50000 ~ "> 50000",
       TRUE ~ NA_character_
     )
@@ -278,12 +286,10 @@ rm(all_munip_pop)
 
 
 if (linux) {
-  bl_projection <- read.csv2("/data/simon/file_balancing_bl.csv",
-                             sep = ";") %>%
-    mutate(bundesland_code = as.character(bundesland_code)) 
+  bl_projection <- read.csv2("/data/simon/file_balancing_bl.csv", sep = ";") %>%
+    mutate(bundesland_code = as.character(bundesland_code))
 } else {
-  bl_projection <- read.csv2(file.path(wd_data_work, "file_balancing_bl.csv"),
-                             sep = ";") %>%
+  bl_projection <- read.csv2(file.path(wd_data_work, "file_balancing_bl.csv"), sep = ";") %>%
     mutate(bundesland_code = as.character(bundesland_code))
 }
 
@@ -295,29 +301,39 @@ if (linux) {
   load(file.path(wd_res, "2026-2035_HP_expanding_forecast_smoothed.RData"))
 }
 
-  hp_pred_for_balancing <- prepare_prediction_for_balancing(
-    hp_pred_forecast_smoothed_export,
-    municipality_reg_mapping,
-    municipality_size_group_mapping_2025,
-    allowed_deviation_pred,
-    bl_projection,
-    prediction_years = 2035
+hp_pred_for_balancing <- prepare_prediction_for_balancing(
+  hp_pred_forecast_smoothed_export,
+  municipality_reg_mapping,
+  municipality_size_group_mapping_2025,
+  allowed_deviation_pred,
+  bl_projection,
+  prediction_years = 2035
+)
+
+balanced_hp_pred <- hp_pred_for_balancing %>%
+  #filter(!reg_code %in% regs_to_not_balance) %>%
+  filter(bl_code == 1) %>%
+  group_by(year, bl_code) %>%
+  group_modify( ~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"),
+                .keep = TRUE) %>%
+  select(
+    municipality_code,
+    bl_code,
+    sex,
+    age_group,
+    year,
+    PRED_hamilton_perry,
+    balanced_pred
   )
-  
-  balanced_hp_pred <- hp_pred_for_balancing %>%
-    #filter(!reg_code %in% regs_to_not_balance) %>%
-    group_by(year, bl_code) %>%
-    group_modify(~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"), .keep = TRUE) %>%
-    select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, balanced_pred)
-  
-  
-  #balanced_hp_pred <- balanced_hp_pred %>%
-  #  bind_rows(hp_pred_for_balancing %>% 
-  #              filter(reg_code %in% regs_to_not_balance) %>%
-  #              select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, projected_population) %>%
-  #              rename(balanced_pred = projected_population)) 
-  
-  
-  #save(balanced_hp_pred, file = file.path(wd_res, "2026-2035_exp_HP_balanced.RData"))
-  save(balanced_hp_pred, file = "2026-2035_exp_HP_balanced.RData")
-  print("HP finished")
+
+
+#balanced_hp_pred <- balanced_hp_pred %>%
+#  bind_rows(hp_pred_for_balancing %>%
+#              filter(reg_code %in% regs_to_not_balance) %>%
+#              select(municipality_code, reg_code, sex, age_group, year, PRED_hamilton_perry, projected_population) %>%
+#              rename(balanced_pred = projected_population))
+
+
+#save(balanced_hp_pred, file = file.path(wd_res, "2026-2035_exp_HP_balanced.RData"))
+save(balanced_hp_pred, file = "2026-2035_exp_HP_balanced.RData")
+print("HP finished")

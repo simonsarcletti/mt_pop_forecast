@@ -495,15 +495,20 @@ ggplot(data = melted_correlation_matrix, aes(x = Var2, y = Var1, fill = value)) 
 
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
 
-ggplot(all_munip_pop %>% filter(municipality_code == "62010", sex == 1, coarse_age_group == "20 - 29"),
+ggplot(all_munip_pop %>% filter(municipality_code == "62041", sex == 1, coarse_age_group == "20 - 29"),
        aes(x = year, y = population)) +
   geom_line(size = 1) +
   geom_point() +
   theme_minimal() + 
-  labs(title = "Hohentauern, m, 20-29",
+  labs(title = "Knittelfeld, m, 20-29",
     x     = "Year",
-    y     =  "Population")
-
+    y     =  "Population") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_continuous(
+    breaks = seq(from = 2002, to = 2024, by = 2), # Set breaks every 2 years
+    limits = c(2002, 2024)                       # Ensure the axis starts and ends at these values
+  )
+ 
 
 load(file.path(wd_res, "2025-2035_TFT_balanced.RData"))
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
@@ -868,7 +873,7 @@ all_series <- bind_rows(all_series, cutoff_rows)
 
 # 4) plot with one panel per municipality
 
-ggplot(all_series, aes(x = year, y = population, color = type)) +
+plot <- ggplot(all_series, aes(x = year, y = population, color = type)) +
   geom_line(size = 0.7) +
   geom_point() +
   geom_vline(xintercept = 2021, linetype = "dashed") +
@@ -891,9 +896,18 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
     "HP"              = "purple",
     "VSG"             = "brown"
   )) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12,  face = "bold") # Adjust '12' to your desired font size
+  )
 
-
+ggsave(
+  filename = "all_test_kf_kobenz facetted.png", # Or .pdf, .tiff, .jpeg
+  plot = plot,
+  width = 6,  # Width in inches (adjust as needed)
+  height = 8, # Height in inches (adjust as needed, especially with ncol = 1 facets)
+  dpi = 300   # Resolution in dots per inch (300-600 is high res for print)
+)
 # facetted plot of all predictions ---------------------------------------------------
 # graph with all test forecasts
 load(file.path(wd_data_work, "all_municipalities_population.RData"))
@@ -1007,7 +1021,7 @@ all_series <- bind_rows(all_series, cutoff_rows)
 
 # 4) plot with one panel per municipality
 
-ggplot(all_series, aes(x = year, y = population, color = type)) +
+plot <-ggplot(all_series, aes(x = year, y = population, color = type)) +
   geom_line(size = 0.7) +
   geom_point() +
   geom_vline(xintercept = 2024, linetype = "dashed") +
@@ -1030,5 +1044,201 @@ ggplot(all_series, aes(x = year, y = population, color = type)) +
     "HP"              = "purple",
     "VSG"             = "brown"
   )) +
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12) # Adjust '12' to your desired font size
+  )
+
+ggsave(
+  filename = "all_prediction_kf_kobent_facetted.png", # Or .pdf, .tiff, .jpeg
+  plot = plot,
+  width = 6,  # Width in inches (adjust as needed)
+  height = 8, # Height in inches (adjust as needed, especially with ncol = 1 facets)
+  dpi = 300   # Resolution in dots per inch (300-600 is high res for print)
+)
+# display municipality that shows average deviation according to table 6.2 -----
+load(file.path(wd_data_work, "all_municipalities_population.RData"))
+load(file.path(wd_res, "2022-2024_TFT_balanced.RData"))
+balanced_tft_test <- balanced_tft_test %>% 
+  ungroup() %>%
+  mutate(balanced_pred = case_when(is.na(balanced_pred) ~ projected_population,
+                                   .default =balanced_pred)) %>%
+  select(-tft_prediction, -projected_population, -reg_code)
+all_munip_pop <- all_munip_pop %>%
+  select(-reg_code, -smoothed_population, -municipality) 
+find_avg_deviation <- all_munip_pop %>%
+  filter(year %in% 2022:2024)
+  left_join(balanced_tft_test,
+            by = join_by(municipality_code,
+                         year, 
+                         sex, 
+                         coarse_age_group == age_group)) %>%
+  group_by(municipality_code, coarse_age_group, year) %>%
+  summarise(population = sum(population),
+            balanced_pred = sum(balanced_pred)) %>%
+  mutate(APE = abs((population-balanced_pred)/population) *100) %>%
+  group_by(municipality_code, year) %>%
+  mutate(candidate = case_when(APE > 2.2 & APE < 4.3 & year == 2022 ~1,
+                               APE > 3.1 & APE < 6.1 & year == 2023 ~1,
+                               APE > 3.8 & APE < 7.4 & year == 2024 ~1)) 
+
+canditate <- find_avg_deviation %>%
+  ungroup() %>%
+  group_by(municipality_code) %>%
+  summarise(share = sum(candidate, na.rm = TRUE)/24)
+
+
+munis <- c("50509")
+
+# 1) build each series, grouping by muni and year
+base_period <- all_munip_pop %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year, coarse_age_group) %>%
+  summarise(population = sum(population), .groups = "drop") %>%
+  mutate(type = "Historic values")
+
+tft <- balanced_tft_test %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year, age_group) %>%
+  rename(coarse_age_group = age_group) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "TFT")
+
+all_series <- bind_rows(base_period, tft)
+
+# 3) add the 2021 cut‐off horizontal points for each muni
+cut_off <- base_period %>%
+  filter(year == 2021) %>%
+  group_by(coarse_age_group) %>%
+  select(municipality_code, population_2021 = population)
+
+#future_types <- tibble(type = c("TFT")
+
+cutoff_rows <- cut_off %>%
+#  crossing(future_types) %>%     # one row per muni × per type
+  mutate(
+    year       = 2021,
+    population = population_2021
+  ) %>%
+  select(municipality_code, year, population) %>%
+  mutate(type = "TFT")
+
+all_series <- bind_rows(all_series, cutoff_rows)
+
+
+# 4) plot with one panel per municipality
+
+my_plot <- ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2021, linetype = "dashed") +
+  
+  labs(
+    x     = "Year",
+    y     = "Population",
+    title =  "St. Michael im Lungau",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue"
+  )) +
+  theme_minimal() + # Apply the minimal theme first
+  theme(plot.title = element_text(hjust = 0.5)) + # Then apply your specific centering
+  scale_x_continuous(
+    breaks = seq(from = 2004, to = 2024, by = 4),
+    limits = c(2002, 2024)
+  ) +
+  facet_wrap(~ coarse_age_group,ncol = 1, scales = "free_y")
+
+ggsave(
+  filename = "pop_tft_st_michael_lungau.png", # Or .pdf, .tiff, .jpeg
+  plot = my_plot,
+  width = 8,  # Width in inches (adjust as needed)
+  height = 12, # Height in inches (adjust as needed, especially with ncol = 1 facets)
+  dpi = 500   # Resolution in dots per inch (300-600 is high res for print)
+)
+# best and worst tft prediction ------------------------------------------------
+best_tft <- all_munip_pop %>%
+  filter(year %in% 2022:2024) %>%
+  left_join(balanced_tft_test,
+          by = join_by(municipality_code,
+                       year, 
+                       sex, 
+                       coarse_age_group == age_group)) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population),
+            balanced_pred = sum(balanced_pred)) %>%
+  mutate(APE = abs((population-balanced_pred)/population) *100) %>%
+  group_by(municipality_code)  %>%
+  summarise(average=mean(APE, na.rm = TRUE)) 
+
+
+munis <- c("50509")
+
+# 1) build each series, grouping by muni and year
+base_period <- all_munip_pop %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(population), .groups = "drop") %>%
+  mutate(type = "Historic values")
+
+tft <- balanced_tft_test %>%
+  filter(municipality_code %in% munis) %>%
+  group_by(municipality_code, year) %>%
+  summarise(population = sum(balanced_pred), .groups = "drop") %>%
+  mutate(type = "TFT")
+
+all_series <- bind_rows(base_period, tft)
+
+# 3) add the 2021 cut‐off horizontal points for each muni
+cut_off <- base_period %>%
+  filter(year == 2021) %>%
+  select(municipality_code, population_2021 = population)
+
+future_types <- tibble(type = c("TFT", "CSP-VSG", "CSP", "LINEXP", "HP", "VSG"))
+
+cutoff_rows <- cut_off %>%
+  crossing(future_types) %>%     # one row per muni × per type
+  mutate(
+    year       = 2021,
+    population = population_2021
+  ) %>%
+  select(municipality_code, year, population, type)
+
+all_series <- bind_rows(all_series, cutoff_rows)
+
+# 4) plot with one panel per municipality
+
+ggplot(all_series, aes(x = year, y = population, color = type)) +
+  geom_line(size = 0.7) +
+  geom_point() +
+  geom_vline(xintercept = 2021, linetype = "dashed") +
+  labs(
+    x     = "Year",
+    y     = "Population",
+    title =  "Spital am Semmering",
+    color = NULL
+  ) +
+  scale_color_manual(values = c(
+    "Historic values" = "black",
+    "TFT"             = "blue"
+  )) +
+  theme_minimal() + # Apply the minimal theme first
+  theme(plot.title = element_text(hjust = 0.5)) + # Then apply your specific centering
+  scale_x_continuous(
+    breaks = seq(from = 2002, to = 2024, by = 2),
+    limits = c(2002, 2024)
+  )
+
+
+
+
+
+
+
+
+
+
+
 

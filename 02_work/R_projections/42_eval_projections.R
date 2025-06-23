@@ -21,10 +21,15 @@ evaluate_predictions <- function(prediction_dfs,
                                  prediction_years = 2022:2024,
                                  grouping_col_nice = NULL,
                                  model_names = NULL,
-                                 print_latex = FALSE) {
+                                 print_latex = FALSE,
+                                 error_metric = "medape") {  # NEW argument
   
+  # metric functions
   median_abs_perc_error <- function(actual, predicted) {
     median(abs(actual - predicted) / actual * 100, na.rm = TRUE)
+  }
+  mean_abs_perc_error <- function(actual, predicted) {
+    mean(abs(actual - predicted) / actual * 100, na.rm = TRUE)
   }
   
   # capture the bare names
@@ -48,22 +53,25 @@ evaluate_predictions <- function(prediction_dfs,
     summarise(across(all_of(c(as_name(tv_col), pred_cols)), sum),
               .groups = "drop")
   
-  # compute medAPE
-  med_ape_df <- agg %>%
+  # choose error metric
+  error_func <- switch(tolower(error_metric),
+                       "medape" = median_abs_perc_error,
+                       "mape"   = mean_abs_perc_error,
+                       stop("Invalid error_metric. Choose either 'medape' or 'mape'."))
+  
+  # compute APE
+  ape_df <- agg %>%
     group_by(year, !!grp_col) %>%
     summarise(across(all_of(pred_cols),
-                     ~ median_abs_perc_error(!!tv_col, .x)),
+                     ~ error_func(!!tv_col, .x)),
               .groups = "drop")
   
-  
-  
   if(print_latex == FALSE){
-    return(med_ape_df) 
-  } else
-  {
-    colnames(med_ape_df) <- c("Year", grouping_col_nice, model_names)
-    latex_table <- xtable(med_ape_df, caption = "Prediction Evaluation", digits = 1)
-    return(list(data_frame = med_ape_df, 
+    return(ape_df) 
+  } else {
+    colnames(ape_df) <- c("Year", grouping_col_nice, model_names)
+    latex_table <- xtable(ape_df, caption = "Prediction Evaluation", digits = 1)
+    return(list(data_frame = ape_df, 
                 latex_table = latex_table))
   }
 }
@@ -138,7 +146,8 @@ evaluation_of_all_unbalanced <- evaluate_predictions(
   prediction_years = 2022:2024,
   grouping_col_nice = "Population Size Group",
   model_names = c("LINEXP", "HP", "CSP", "VSG", "CSP-VSG", "TFT"),
-  print_latex = TRUE)
+  print_latex = TRUE,
+  error_metric = "mape")
 
 
 evaluation_of_all_unbalanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_unbalanced_size_group.csv"))
@@ -258,9 +267,10 @@ evaluation_of_all_balanced <- evaluate_predictions(
   prediction_years = 2022:2024,
   grouping_col_nice = "Population Size Group",
   model_names = c("LINEXP", "HP", "CSP", "VSG", "CSP-VSG", "TFT"),
-  print_latex = TRUE)
+  print_latex = TRUE,
+  error_metric = "mape")
 evaluation_of_all_balanced[1]
-evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_size_group.csv"))
+evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_size_group_mape.csv"))
 
 
 evaluation_of_all_balanced <- evaluate_predictions(
@@ -284,9 +294,20 @@ evaluation_of_all_balanced <- evaluate_predictions(
   prediction_years = 2022:2024,
   grouping_col_nice = "Altersgruppe",
   model_names = c("LINEXP", "HP", "CSP", "VSG", "CSP-VSG", "TFT"),
-  print_latex = TRUE)
+  print_latex = TRUE,
+  error_metric = "mape")
 evaluation_of_all_balanced[1]
-evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_age_group.csv"))
+evaluation_of_all_balanced[1] %>% write.csv(file.path(wd_res, "evaluations\\evaluation_balanced_age_group_mape.csv"))
+
+
+
+
+
+
+
+
+
+
 
 
 # evaluate raw test ------------------------------------------------------------
