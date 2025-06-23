@@ -312,7 +312,7 @@ hp_pred_for_balancing <- prepare_prediction_for_balancing(
 
 balanced_hp_pred <- hp_pred_for_balancing %>%
   #filter(!reg_code %in% regs_to_not_balance) %>%
-  filter(bl_code == 1) %>%
+  #filter(bl_code == 1) %>%
   group_by(year, bl_code) %>%
   group_modify( ~ balance_prediction(.x, pred_col_name = "PRED_hamilton_perry"),
                 .keep = TRUE) %>%
